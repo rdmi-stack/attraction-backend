@@ -1,0 +1,121 @@
+import mongoose, { Schema } from 'mongoose';
+import { IBooking } from '../types';
+import { generateBookingReference } from '../utils/hash';
+
+const bookingSchema = new Schema<IBooking>(
+  {
+    reference: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
+    tenantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Tenant',
+      required: true,
+      index: true,
+    },
+    attractionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Attraction',
+      required: true,
+    },
+    items: [{
+      optionId: { type: String, required: true },
+      optionName: { type: String, required: true },
+      date: { type: String, required: true },
+      time: { type: String },
+      quantities: {
+        adults: { type: Number, required: true, min: 0 },
+        children: { type: Number, required: true, min: 0 },
+        infants: { type: Number, required: true, min: 0 },
+      },
+      unitPrice: { type: Number, required: true },
+      totalPrice: { type: Number, required: true },
+    }],
+    guestDetails: {
+      firstName: { type: String, required: true },
+      lastName: { type: String, required: true },
+      email: { type: String, required: true, lowercase: true },
+      phone: { type: String, required: true },
+      country: { type: String, required: true },
+      specialRequests: { type: String },
+    },
+    subtotal: {
+      type: Number,
+      required: true,
+    },
+    fees: {
+      type: Number,
+      default: 0,
+    },
+    discount: {
+      type: Number,
+      default: 0,
+    },
+    total: {
+      type: Number,
+      required: true,
+    },
+    currency: {
+      type: String,
+      required: true,
+      default: 'USD',
+    },
+    promoCode: {
+      type: String,
+    },
+    paymentMethod: {
+      type: String,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'succeeded', 'failed', 'refunded'],
+      default: 'pending',
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'confirmed', 'cancelled', 'completed', 'refunded'],
+      default: 'pending',
+      index: true,
+    },
+    stripePaymentIntentId: {
+      type: String,
+    },
+    ticketPdfUrl: {
+      type: String,
+    },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (_, ret) => {
+        const obj = ret as Record<string, unknown>;
+        delete obj.__v;
+        return obj;
+      },
+    },
+  }
+);
+
+// Generate booking reference before saving
+bookingSchema.pre('save', function (next) {
+  if (!this.reference) {
+    this.reference = generateBookingReference();
+  }
+  next();
+});
+
+// Indexes for queries
+bookingSchema.index({ 'guestDetails.email': 1 });
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
+
+export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);
