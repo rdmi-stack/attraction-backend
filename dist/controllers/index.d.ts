@@ -1,9 +1,0 @@
-export * from './auth.controller';
-export * from './attractions.controller';
-export * from './bookings.controller';
-export * from './categories.controller';
-export * from './destinations.controller';
-export * from './tenants.controller';
-export * from './users.controller';
-export * from './payments.controller';
-//# sourceMappingURL=index.d.ts.map
