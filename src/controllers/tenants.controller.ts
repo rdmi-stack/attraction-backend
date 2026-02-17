@@ -108,6 +108,30 @@ export const getPublicTenants = async (
   }
 };
 
+/**
+ * Public endpoint – returns a single tenant by ID (no auth required).
+ * Includes all fields for the admin detail page fallback.
+ */
+export const getPublicTenantById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const tenant = await Tenant.findById(id).lean();
+
+    if (!tenant) {
+      sendError(res, 'Tenant not found', 404);
+      return;
+    }
+
+    sendSuccess(res, tenant);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getTenantBySlug = async (
   req: AuthRequest,
   res: Response,

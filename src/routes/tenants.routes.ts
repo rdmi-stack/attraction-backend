@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getTenants,
   getPublicTenants,
+  getPublicTenantById,
   getTenantById,
   getTenantBySlug,
   createTenant,
@@ -27,6 +28,26 @@ const router = Router();
  *         description: List of public tenants
  */
 router.get('/public', getPublicTenants);
+
+/**
+ * @swagger
+ * /tenants/public/{id}:
+ *   get:
+ *     summary: Get a single tenant by ID (public, no auth)
+ *     tags: [Tenants]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Tenant details
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
+router.get('/public/:id', getPublicTenantById);
 
 /**
  * @swagger
