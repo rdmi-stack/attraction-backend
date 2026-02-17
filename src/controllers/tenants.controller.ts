@@ -87,6 +87,27 @@ export const getTenantById = async (
   }
 };
 
+/**
+ * Public endpoint – returns all active + coming_soon tenants (no auth required).
+ * Used by the frontend LayoutWrapper for tenant resolution.
+ */
+export const getPublicTenants = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenants = await Tenant.find({ status: { $in: ['active', 'coming_soon'] } })
+      .select('slug name domain logo tagline description theme designMode defaultCurrency defaultLanguage supportedLanguages status seoSettings contactInfo')
+      .sort({ name: 1 })
+      .lean();
+
+    sendSuccess(res, tenants);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getTenantBySlug = async (
   req: AuthRequest,
   res: Response,

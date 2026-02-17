@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getTenants,
+  getPublicTenants,
   getTenantById,
   getTenantBySlug,
   createTenant,
@@ -14,6 +15,18 @@ import { createTenantSchema, updateTenantSchema, paginationSchema } from '../uti
 import { z } from 'zod';
 
 const router = Router();
+
+/**
+ * @swagger
+ * /tenants/public:
+ *   get:
+ *     summary: Get all public tenants (active + coming_soon, no auth)
+ *     tags: [Tenants]
+ *     responses:
+ *       200:
+ *         description: List of public tenants
+ */
+router.get('/public', getPublicTenants);
 
 /**
  * @swagger
@@ -87,7 +100,7 @@ router.get(
   validateQuery(
     paginationSchema.merge(
       z.object({
-        status: z.enum(['active', 'inactive', 'pending', 'suspended']).optional(),
+        status: z.enum(['active', 'inactive', 'pending', 'suspended', 'coming_soon']).optional(),
         search: z.string().optional(),
       })
     )
