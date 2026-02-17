@@ -134,7 +134,7 @@ const tenantSchema = new Schema<ITenant>(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'pending', 'suspended'],
+      enum: ['active', 'inactive', 'pending', 'suspended', 'coming_soon'],
       default: 'pending',
       index: true,
     },

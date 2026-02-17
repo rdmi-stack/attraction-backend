@@ -1,8 +1,10 @@
 import { CorsOptions } from 'cors';
 import { env } from './env';
 
+// Support comma-separated FRONTEND_URL for multiple origins
+// e.g. FRONTEND_URL=https://myapp.vercel.app,https://custom-domain.com
 const allowedOrigins = [
-  env.frontendUrl,
+  ...env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean),
   'http://localhost:3000',
   'http://localhost:3001',
 ];

@@ -35,7 +35,7 @@ export interface IUser extends Document {
 }
 
 // Tenant Types
-export type TenantStatus = 'active' | 'inactive' | 'pending' | 'suspended';
+export type TenantStatus = 'active' | 'inactive' | 'pending' | 'suspended' | 'coming_soon';
 
 export interface ITenant extends Document {
   _id: Types.ObjectId;

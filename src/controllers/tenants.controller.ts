@@ -95,7 +95,7 @@ export const getTenantBySlug = async (
   try {
     const { slug } = req.params;
 
-    const tenant = await Tenant.findOne({ slug, status: 'active' }).lean();
+    const tenant = await Tenant.findOne({ slug, status: { $in: ['active', 'coming_soon'] } }).lean();
 
     if (!tenant) {
       sendError(res, 'Tenant not found', 404);
