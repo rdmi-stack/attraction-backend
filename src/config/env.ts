@@ -10,7 +10,7 @@ export const env = {
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/attractions-network',
   
   // JWT
-  jwtSecret: process.env.JWT_SECRET || 'your-default-secret-change-me',
+  jwtSecret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('JWT_SECRET must be set in production'); })() : 'dev-only-secret-do-not-use-in-production'),
   jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   
@@ -18,12 +18,10 @@ export const env = {
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   
-  // Email
-  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
-  smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
-  smtpUser: process.env.SMTP_USER || '',
-  smtpPass: process.env.SMTP_PASS || '',
-  emailFrom: process.env.EMAIL_FROM || '"Attractions Network" <bookings@attractions-network.com>',
+  // Mailgun
+  mailgunApiKey: process.env.MAILGUN_API_KEY || '',
+  mailgunDomain: process.env.MAILGUN_DOMAIN || '',
+  mailgunFromEmail: process.env.MAILGUN_FROM_EMAIL || 'Attractions Network <noreply@foxesnetwork.com>',
   
   // Cloudinary
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

@@ -1,6 +1,7 @@
 import { Router, raw } from 'express';
 import {
   createPaymentIntent,
+  confirmPayment,
   handleWebhook,
   getPaymentStatus,
   refundPayment,
@@ -83,6 +84,34 @@ router.post(
   validate(createPaymentIntentSchema),
   createPaymentIntent
 );
+
+/**
+ * @swagger
+ * /payments/confirm:
+ *   post:
+ *     summary: Confirm payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bookingId
+ *             properties:
+ *               bookingId:
+ *                 type: string
+ *                 description: Booking ID to confirm payment for
+ *     responses:
+ *       200:
+ *         description: Payment confirmed
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
+router.post('/confirm', optionalAuth, confirmPayment);
 
 /**
  * @swagger

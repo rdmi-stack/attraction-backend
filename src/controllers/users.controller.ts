@@ -4,6 +4,7 @@ import { Attraction } from '../models/Attraction';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { generateRandomToken, hashToken } from '../utils/hash';
+import { sendUserInvitation } from '../services/email.service';
 
 // User Profile Endpoints
 export const getProfile = async (
@@ -207,8 +208,8 @@ export const inviteUser = async (
       passwordResetExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
 
-    // TODO: Send invitation email with reset link
-    console.log('Invitation token (dev only):', tempPassword);
+    // Send invitation email
+    await sendUserInvitation(email, tempPassword, req.user?.firstName || 'Admin', role);
 
     sendSuccess(res, user, 'User invited successfully', 201);
   } catch (error) {

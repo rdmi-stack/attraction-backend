@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { Attraction } from '../models/Attraction';
 import { Review } from '../models/Review';
+import { Availability } from '../models/Availability';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { Types } from 'mongoose';
@@ -98,6 +99,9 @@ export const getAttractions = async (
         .lean(),
       Attraction.countDocuments(query),
     ]);
+
+    // Cache for 2 minutes (dynamic based on search params)
+    res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=600');
 
     sendPaginated(res, attractions, pageNum, limitNum, total);
   } catch (error) {
@@ -201,43 +205,89 @@ export const getAttractionAvailability = async (
       return;
     }
 
-    // Generate availability data (simplified - in production, this would check actual inventory)
+    // Calculate date range
+    const startDate = date ? new Date(date as string) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    let endDate: Date;
+    if (month) {
+      const monthDate = new Date(month as string);
+      endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    } else {
+      endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+    endDate.setHours(23, 59, 59, 999);
+
+    // Query real availability from database
+    const availabilityRecords = await Availability.find({
+      attractionId: id,
+      date: { $gte: startDate, $lte: endDate },
+      isBlocked: false,
+    }).sort({ date: 1 }).lean();
+
+    // Build a map of existing availability
+    const availMap = new Map<string, typeof availabilityRecords[0]>();
+    for (const record of availabilityRecords) {
+      const dateStr = new Date(record.date).toISOString().split('T')[0];
+      availMap.set(dateStr, record);
+    }
+
+    // Generate response for each day in range
     const availability: Array<{
       date: string;
       available: boolean;
       timeSlots?: Array<{ time: string; available: boolean; spotsLeft: number }>;
     }> = [];
 
-    const startDate = date ? new Date(date as string) : new Date();
-    const endDate = month
-      ? new Date(new Date(month as string).getFullYear(), new Date(month as string).getMonth() + 1, 0)
-      : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-
+    const defaultCapacity = 25; // Default capacity when no availability record exists
     const currentDate = new Date(startDate);
+
     while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      
-      const dayAvailability: {
-        date: string;
-        available: boolean;
-        timeSlots?: Array<{ time: string; available: boolean; spotsLeft: number }>;
-      } = {
-        date: dateStr,
-        available: true,
-      };
+      const record = availMap.get(dateStr);
 
-      if (attraction.availability.type === 'time-slots') {
-        dayAvailability.timeSlots = [
-          { time: '09:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-          { time: '10:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-          { time: '11:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-          { time: '14:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-          { time: '15:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-          { time: '16:00', available: true, spotsLeft: Math.floor(Math.random() * 20) + 5 },
-        ];
+      if (record) {
+        // Use real data from database
+        if (record.timeSlots && record.timeSlots.length > 0) {
+          availability.push({
+            date: dateStr,
+            available: record.timeSlots.some((s) => s.capacity - s.booked > 0),
+            timeSlots: record.timeSlots.map((s) => ({
+              time: s.time,
+              available: s.capacity - s.booked > 0,
+              spotsLeft: Math.max(0, s.capacity - s.booked),
+            })),
+          });
+        } else {
+          const spotsLeft = (record.allDayCapacity || defaultCapacity) - (record.allDayBooked || 0);
+          availability.push({
+            date: dateStr,
+            available: spotsLeft > 0,
+          });
+        }
+      } else {
+        // No record — generate default availability
+        if (attraction.availability?.type === 'time-slots') {
+          availability.push({
+            date: dateStr,
+            available: true,
+            timeSlots: [
+              { time: '09:00', available: true, spotsLeft: defaultCapacity },
+              { time: '10:00', available: true, spotsLeft: defaultCapacity },
+              { time: '11:00', available: true, spotsLeft: defaultCapacity },
+              { time: '14:00', available: true, spotsLeft: defaultCapacity },
+              { time: '15:00', available: true, spotsLeft: defaultCapacity },
+              { time: '16:00', available: true, spotsLeft: defaultCapacity },
+            ],
+          });
+        } else {
+          availability.push({
+            date: dateStr,
+            available: true,
+          });
+        }
       }
 
-      availability.push(dayAvailability);
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
@@ -333,6 +383,9 @@ export const getFeaturedAttractions = async (
       .sort({ sortOrder: 1, rating: -1 })
       .limit(parseInt(limit as string, 10))
       .lean();
+
+    // Cache for 10 minutes (featured attractions change less frequently)
+    res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=1200');
 
     sendSuccess(res, attractions);
   } catch (error) {

@@ -23,9 +23,14 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc: ["'self'", ...env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean)],
+        fontSrc: ["'self'", 'https:', 'data:'],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
       },
     },
+    crossOriginEmbedderPolicy: false,
   })
 );
 

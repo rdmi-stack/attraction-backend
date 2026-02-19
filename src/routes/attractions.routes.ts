@@ -229,6 +229,43 @@ router.get(
   getAttractionAvailability
 );
 
+// Submit a review
+router.post(
+  '/:id/reviews',
+  optionalAuth,
+  (req: any, res: any, next: any) => {
+    // Inline validation
+    const { rating, title, content, author, country } = req.body;
+    if (!rating || !title || !content || !author || !country) {
+      return res.status(400).json({ success: false, message: 'Missing required fields: rating, title, content, author, country' });
+    }
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+    }
+    next();
+  },
+  async (req: any, res: any, next: any) => {
+    try {
+      const { Review } = require('../models/Review');
+      const review = await Review.create({
+        attractionId: req.params.id,
+        userId: req.user?._id,
+        author: req.body.author,
+        rating: req.body.rating,
+        title: req.body.title,
+        content: req.body.content,
+        country: req.body.country,
+        images: req.body.images || [],
+        verified: !!req.user,
+        status: 'pending',
+      });
+      res.status(201).json({ success: true, data: review, message: 'Review submitted for moderation' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 /**
  * @swagger
  * /attractions:

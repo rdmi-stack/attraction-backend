@@ -5,6 +5,7 @@ import { generateRandomToken, hashToken } from '../utils/hash';
 import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../types';
 import { env } from '../config/env';
+import { sendPasswordResetEmail } from '../services/email.service';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -235,10 +236,8 @@ export const forgotPassword = async (
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    // TODO: Send email with reset link
-    // await emailService.sendPasswordReset(user.email, resetToken);
-
-    console.log('Password reset token (dev only):', resetToken);
+    // Send password reset email
+    await sendPasswordResetEmail(user.email, resetToken, user.firstName || 'User');
 
     sendSuccess(res, null, 'If the email exists, a password reset link will be sent');
   } catch (error) {

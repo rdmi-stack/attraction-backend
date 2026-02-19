@@ -2,9 +2,13 @@ import { Response, NextFunction } from 'express';
 import { Booking } from '../models/Booking';
 import { Attraction } from '../models/Attraction';
 import { User } from '../models/User';
+import { PromoCode } from '../models/PromoCode';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { generateBookingReference } from '../utils/hash';
+import { generateTicketPdf } from '../services/pdf.service';
+import { createMockRefund } from '../services/stripe.service';
+import { Availability } from '../models/Availability';
 
 export const createBooking = async (
   req: AuthRequest,
@@ -28,11 +32,30 @@ export const createBooking = async (
     });
 
     const fees = Math.round(subtotal * 0.05 * 100) / 100; // 5% service fee
-    const discount = 0;
+    let discount = 0;
 
-    // TODO: Validate promo code
+    // Validate promo code
     if (promoCode) {
-      // Apply discount logic
+      const promo = await PromoCode.findOne({
+        code: promoCode.toUpperCase(),
+        isActive: true,
+        validFrom: { $lte: new Date() },
+        validUntil: { $gte: new Date() },
+      });
+
+      if (promo && promo.usageCount < promo.usageLimit && subtotal >= promo.minOrderAmount) {
+        if (promo.discountType === 'percentage') {
+          discount = Math.round(subtotal * (promo.discountValue / 100) * 100) / 100;
+          if (promo.maxDiscount) {
+            discount = Math.min(discount, promo.maxDiscount);
+          }
+        } else {
+          discount = promo.discountValue;
+        }
+
+        // Increment usage count
+        await PromoCode.findByIdAndUpdate(promo._id, { $inc: { usageCount: 1 } });
+      }
     }
 
     const total = subtotal + fees - discount;
@@ -60,6 +83,29 @@ export const createBooking = async (
       await User.findByIdAndUpdate(req.user._id, {
         $inc: { totalBookings: 1, totalSpent: total },
       });
+    }
+
+    // Decrement availability for booked slots
+    for (const item of items) {
+      if (item.date) {
+        const bookingDate = new Date(item.date);
+        bookingDate.setHours(0, 0, 0, 0);
+        const totalGuests = (item.quantities?.adults || 0) + (item.quantities?.children || 0);
+
+        if (item.time) {
+          await Availability.findOneAndUpdate(
+            { attractionId, date: bookingDate, 'timeSlots.time': item.time },
+            { $inc: { 'timeSlots.$.booked': totalGuests } },
+            { upsert: false }
+          );
+        } else {
+          await Availability.findOneAndUpdate(
+            { attractionId, date: bookingDate },
+            { $inc: { allDayBooked: totalGuests } },
+            { upsert: false }
+          );
+        }
+      }
     }
 
     sendSuccess(res, booking, 'Booking created successfully', 201);
@@ -171,11 +217,12 @@ export const cancelBooking = async (
 
     // Update booking status
     booking.status = 'cancelled';
-    
-    // If payment was made, initiate refund
-    if (booking.paymentStatus === 'succeeded') {
-      // TODO: Initiate Stripe refund
+
+    // If payment was made, process refund
+    if (booking.paymentStatus === 'succeeded' && booking.stripePaymentIntentId) {
+      createMockRefund(booking.stripePaymentIntentId, Math.round(booking.total * 100));
       booking.paymentStatus = 'refunded';
+      booking.status = 'refunded';
     }
 
     await booking.save();
@@ -217,12 +264,33 @@ export const getBookingTicket = async (
       return;
     }
 
-    // Return ticket URL or generate PDF
-    if (booking.ticketPdfUrl) {
-      sendSuccess(res, { ticketUrl: booking.ticketPdfUrl });
-    } else {
-      // TODO: Generate PDF ticket
-      sendError(res, 'Ticket generation in progress', 202);
+    // Generate and return PDF ticket
+    try {
+      const attraction = booking.attractionId as any;
+      const ticketData = {
+        reference: booking.reference,
+        attractionTitle: attraction?.title || 'Experience',
+        date: booking.items[0]?.date || new Date().toISOString().split('T')[0],
+        time: booking.items[0]?.time,
+        guestName: `${booking.guestDetails.firstName} ${booking.guestDetails.lastName}`,
+        email: booking.guestDetails.email,
+        items: booking.items.map((item: any) => ({
+          optionName: item.optionName,
+          quantities: item.quantities,
+        })),
+        total: booking.total,
+        currency: booking.currency,
+        meetingPoint: attraction?.meetingPoint,
+      };
+
+      const pdfBuffer = await generateTicketPdf(ticketData);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=ticket-${booking.reference}.pdf`);
+      res.send(pdfBuffer);
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError);
+      sendError(res, 'Failed to generate ticket', 500);
     }
   } catch (error) {
     next(error);

@@ -4,11 +4,30 @@ import attractionsRoutes from './attractions.routes';
 import bookingsRoutes from './bookings.routes';
 import categoriesRoutes from './categories.routes';
 import destinationsRoutes from './destinations.routes';
+import reviewsRoutes from './reviews.routes';
 import tenantsRoutes from './tenants.routes';
 import usersRoutes from './users.routes';
 import paymentsRoutes from './payments.routes';
+import uploadRoutes from './upload.routes';
+import contactRoutes from './contact.routes';
+import statsRoutes from './stats.routes';
 
 const router = Router();
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is running',
+    status: 'operational',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  });
+});
+
+// Stats routes (public)
+router.use('/stats', statsRoutes);
 
 // API Documentation - Homepage (HTML)
 router.get('/', (req, res) => {
@@ -228,27 +247,18 @@ router.get('/', (req, res) => {
   res.send(html);
 });
 
-// Health check
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'API is running',
-    status: 'operational',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-  });
-});
-
 // API routes
 router.use('/auth', authRoutes);
 router.use('/attractions', attractionsRoutes);
 router.use('/bookings', bookingsRoutes);
 router.use('/categories', categoriesRoutes);
 router.use('/destinations', destinationsRoutes);
+router.use('/reviews', reviewsRoutes);
 router.use('/tenants', tenantsRoutes);
 router.use('/users', usersRoutes);
 router.use('/payments', paymentsRoutes);
+router.use('/upload', uploadRoutes);
+router.use('/contact', contactRoutes);
 
 // Admin routes aliases
 router.use('/admin/attractions', attractionsRoutes);

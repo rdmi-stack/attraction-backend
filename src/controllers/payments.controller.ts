@@ -1,14 +1,11 @@
 import { Response, NextFunction, Request } from 'express';
-import Stripe from 'stripe';
 import { Booking } from '../models/Booking';
+import { Attraction } from '../models/Attraction';
 import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../types';
-import { env } from '../config/env';
-
-// Initialize Stripe
-const stripe = env.stripeSecretKey 
-  ? new Stripe(env.stripeSecretKey, { apiVersion: '2023-10-16' })
-  : null;
+import { createMockPaymentIntent, confirmMockPayment, createMockRefund } from '../services/stripe.service';
+import { generateTicketPdf } from '../services/pdf.service';
+import { sendBookingConfirmation } from '../services/email.service';
 
 export const createPaymentIntent = async (
   req: AuthRequest,
@@ -16,11 +13,6 @@ export const createPaymentIntent = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!stripe) {
-      sendError(res, 'Payment service not configured', 503);
-      return;
-    }
-
     const { bookingId } = req.body;
 
     const booking = await Booking.findById(bookingId).populate('attractionId', 'title');
@@ -35,16 +27,15 @@ export const createPaymentIntent = async (
       return;
     }
 
-    // Create Stripe PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(booking.total * 100), // Convert to cents
-      currency: booking.currency.toLowerCase(),
-      metadata: {
+    // Create mock PaymentIntent
+    const paymentIntent = createMockPaymentIntent(
+      Math.round(booking.total * 100),
+      booking.currency.toLowerCase(),
+      {
         bookingId: booking._id.toString(),
         bookingReference: booking.reference,
-      },
-      description: `Booking ${booking.reference}`,
-    });
+      }
+    );
 
     // Update booking with payment intent ID
     booking.stripePaymentIntentId = paymentIntent.id;
@@ -62,83 +53,98 @@ export const createPaymentIntent = async (
   }
 };
 
+export const confirmPayment = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { bookingId } = req.body;
+
+    const booking = await Booking.findById(bookingId)
+      .populate('attractionId', 'title slug images destination meetingPoint');
+
+    if (!booking) {
+      sendError(res, 'Booking not found', 404);
+      return;
+    }
+
+    if (booking.paymentStatus !== 'processing' && booking.paymentStatus !== 'pending') {
+      sendError(res, 'Payment cannot be confirmed', 400);
+      return;
+    }
+
+    // Mock payment confirmation - immediately succeeds
+    booking.paymentStatus = 'succeeded';
+    booking.status = 'confirmed';
+    booking.paymentMethod = 'card';
+
+    if (!booking.stripePaymentIntentId) {
+      booking.stripePaymentIntentId = `pi_mock_auto_${Date.now()}`;
+    }
+
+    await booking.save();
+
+    // Generate ticket PDF and send confirmation email
+    try {
+      const attraction = booking.attractionId as any;
+      const ticketData = {
+        reference: booking.reference,
+        attractionTitle: attraction?.title || 'Experience',
+        date: booking.items[0]?.date || new Date().toISOString().split('T')[0],
+        time: booking.items[0]?.time,
+        guestName: `${booking.guestDetails.firstName} ${booking.guestDetails.lastName}`,
+        email: booking.guestDetails.email,
+        items: booking.items.map((item: any) => ({
+          optionName: item.optionName,
+          quantities: item.quantities,
+        })),
+        total: booking.total,
+        currency: booking.currency,
+        meetingPoint: attraction?.meetingPoint,
+      };
+
+      const pdfBuffer = await generateTicketPdf(ticketData);
+
+      // Send confirmation email with PDF attachment
+      await sendBookingConfirmation(
+        booking.guestDetails.email,
+        {
+          reference: booking.reference,
+          attractionTitle: attraction?.title || 'Experience',
+          date: booking.items[0]?.date || '',
+          time: booking.items[0]?.time,
+          guestName: `${booking.guestDetails.firstName} ${booking.guestDetails.lastName}`,
+          total: booking.total,
+          currency: booking.currency,
+        },
+        pdfBuffer
+      );
+    } catch (emailError) {
+      console.error('Failed to send confirmation email:', emailError);
+      // Don't fail the payment if email fails
+    }
+
+    sendSuccess(res, {
+      reference: booking.reference,
+      paymentStatus: booking.paymentStatus,
+      bookingStatus: booking.status,
+      amount: booking.total,
+      currency: booking.currency,
+    }, 'Payment confirmed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const handleWebhook = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // Mock webhook handler - in production, this would verify Stripe webhook signatures
+  // For now, we handle payments via the confirmPayment endpoint directly
   try {
-    if (!stripe) {
-      sendError(res, 'Payment service not configured', 503);
-      return;
-    }
-
-    const sig = req.headers['stripe-signature'] as string;
-
-    let event: Stripe.Event;
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        env.stripeWebhookSecret
-      );
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err);
-      sendError(res, 'Webhook signature verification failed', 400);
-      return;
-    }
-
-    // Handle the event
-    switch (event.type) {
-      case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
-        await Booking.findOneAndUpdate(
-          { stripePaymentIntentId: paymentIntent.id },
-          {
-            paymentStatus: 'succeeded',
-            status: 'confirmed',
-            paymentMethod: paymentIntent.payment_method_types[0],
-          }
-        );
-
-        // TODO: Send confirmation email and generate ticket PDF
-        console.log('Payment succeeded for:', paymentIntent.metadata.bookingReference);
-        break;
-      }
-
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
-        await Booking.findOneAndUpdate(
-          { stripePaymentIntentId: paymentIntent.id },
-          { paymentStatus: 'failed' }
-        );
-
-        console.log('Payment failed for:', paymentIntent.metadata.bookingReference);
-        break;
-      }
-
-      case 'charge.refunded': {
-        const charge = event.data.object as Stripe.Charge;
-        
-        if (charge.payment_intent) {
-          await Booking.findOneAndUpdate(
-            { stripePaymentIntentId: charge.payment_intent },
-            {
-              paymentStatus: 'refunded',
-              status: 'refunded',
-            }
-          );
-        }
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
-
     res.json({ received: true });
   } catch (error) {
     next(error);
@@ -180,13 +186,8 @@ export const refundPayment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!stripe) {
-      sendError(res, 'Payment service not configured', 503);
-      return;
-    }
-
     const { bookingId } = req.params;
-    const { amount } = req.body; // Optional partial refund amount
+    const { amount } = req.body;
 
     const booking = await Booking.findById(bookingId);
 
@@ -205,15 +206,12 @@ export const refundPayment = async (
       return;
     }
 
-    // Create refund
+    // Create mock refund
     const refundAmount = amount
       ? Math.round(amount * 100)
       : Math.round(booking.total * 100);
 
-    await stripe.refunds.create({
-      payment_intent: booking.stripePaymentIntentId,
-      amount: refundAmount,
-    });
+    createMockRefund(booking.stripePaymentIntentId, refundAmount);
 
     booking.paymentStatus = 'refunded';
     booking.status = 'refunded';

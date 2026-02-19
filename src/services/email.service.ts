@@ -1,17 +1,10 @@
-import nodemailer from 'nodemailer';
+import Mailgun from 'mailgun.js';
+import formData from 'form-data';
 import { env } from '../config/env';
 
-// Create transporter
-const transporter = env.smtpUser
-  ? nodemailer.createTransport({
-      host: env.smtpHost,
-      port: env.smtpPort,
-      secure: env.smtpPort === 465,
-      auth: {
-        user: env.smtpUser,
-        pass: env.smtpPass,
-      },
-    })
+const mailgun = new Mailgun(formData);
+const mg = env.mailgunApiKey
+  ? mailgun.client({ username: 'api', key: env.mailgunApiKey })
   : null;
 
 interface EmailOptions {
@@ -20,23 +13,31 @@ interface EmailOptions {
   html: string;
   attachments?: Array<{
     filename: string;
-    content: Buffer;
+    data: Buffer;
   }>;
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  if (!transporter) {
-    console.log('Email service not configured. Would send:', options.subject, 'to:', options.to);
+  if (!mg || !env.mailgunDomain) {
+    console.log('Mailgun not configured. Would send:', options.subject, 'to:', options.to);
     return;
   }
 
-  await transporter.sendMail({
-    from: env.emailFrom,
-    to: options.to,
+  const messageData: Record<string, unknown> = {
+    from: env.mailgunFromEmail,
+    to: [options.to],
     subject: options.subject,
     html: options.html,
-    attachments: options.attachments,
-  });
+  };
+
+  if (options.attachments && options.attachments.length > 0) {
+    messageData.attachment = options.attachments.map((a) => ({
+      filename: a.filename,
+      data: a.data,
+    }));
+  }
+
+  await mg.messages.create(env.mailgunDomain, messageData as any);
 };
 
 export const sendBookingConfirmation = async (
@@ -74,13 +75,12 @@ export const sendBookingConfirmation = async (
     <body>
       <div class="container">
         <div class="header">
-          <h1>Booking Confirmed! 🎉</h1>
+          <h1>Booking Confirmed!</h1>
           <p>Your adventure awaits</p>
         </div>
         <div class="content">
           <p>Hi ${bookingDetails.guestName},</p>
           <p>Great news! Your booking has been confirmed. Here are your details:</p>
-          
           <div class="booking-details">
             <div class="detail-row">
               <span class="label">Booking Reference</span>
@@ -99,16 +99,14 @@ export const sendBookingConfirmation = async (
               <span class="value total">${bookingDetails.currency} ${bookingDetails.total.toFixed(2)}</span>
             </div>
           </div>
-          
           <p>Your e-ticket is attached to this email. Simply show it on your phone at the venue.</p>
-          
           <center>
             <a href="${env.frontendUrl}/dashboard/bookings" class="button">View My Bookings</a>
           </center>
         </div>
         <div class="footer">
-          <p>Questions? Contact us at support@attractions-network.com</p>
-          <p>© ${new Date().getFullYear()} Attractions Network. All rights reserved.</p>
+          <p>Questions? Contact us at support@foxesnetwork.com</p>
+          <p>&copy; ${new Date().getFullYear()} Foxes Network. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -120,7 +118,7 @@ export const sendBookingConfirmation = async (
     subject: `Booking Confirmed - ${bookingDetails.reference}`,
     html,
     attachments: ticketPdf
-      ? [{ filename: `ticket-${bookingDetails.reference}.pdf`, content: ticketPdf }]
+      ? [{ filename: `ticket-${bookingDetails.reference}.pdf`, data: ticketPdf }]
       : undefined,
   });
 };
@@ -153,16 +151,14 @@ export const sendPasswordResetEmail = async (
         <div class="content">
           <p>Hi ${userName},</p>
           <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          
           <center>
             <a href="${resetUrl}" class="button">Reset Password</a>
           </center>
-          
           <p>This link will expire in 1 hour.</p>
           <p>If you didn't request this, please ignore this email. Your password will remain unchanged.</p>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} Attractions Network. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Foxes Network. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -171,7 +167,7 @@ export const sendPasswordResetEmail = async (
 
   await sendEmail({
     to: email,
-    subject: 'Reset Your Password - Attractions Network',
+    subject: 'Reset Your Password - Foxes Network',
     html,
   });
 };
@@ -200,21 +196,19 @@ export const sendUserInvitation = async (
     <body>
       <div class="container">
         <div class="header">
-          <h1>You're Invited! 🎉</h1>
+          <h1>You're Invited!</h1>
         </div>
         <div class="content">
           <p>Hi there,</p>
-          <p>${inviterName} has invited you to join Attractions Network as a <strong>${role}</strong>.</p>
+          <p>${inviterName} has invited you to join Foxes Network as a <strong>${role}</strong>.</p>
           <p>Click the button below to accept the invitation and set up your account:</p>
-          
           <center>
             <a href="${inviteUrl}" class="button">Accept Invitation</a>
           </center>
-          
           <p>This invitation will expire in 7 days.</p>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} Attractions Network. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Foxes Network. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -223,7 +217,60 @@ export const sendUserInvitation = async (
 
   await sendEmail({
     to: email,
-    subject: `You're invited to join Attractions Network`,
+    subject: `You're invited to join Foxes Network`,
     html,
+  });
+};
+
+export const sendContactFormEmail = async (
+  fromName: string,
+  fromEmail: string,
+  subject: string,
+  message: string
+): Promise<void> => {
+  const adminHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #1f2937; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+        .field { margin-bottom: 15px; }
+        .field-label { font-weight: 600; color: #6b7280; font-size: 12px; text-transform: uppercase; }
+        .field-value { margin-top: 4px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2>New Contact Form Submission</h2>
+        </div>
+        <div class="content">
+          <div class="field">
+            <div class="field-label">From</div>
+            <div class="field-value">${fromName} &lt;${fromEmail}&gt;</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Subject</div>
+            <div class="field-value">${subject}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Message</div>
+            <div class="field-value">${message}</div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: env.mailgunFromEmail.includes('<')
+      ? env.mailgunFromEmail.match(/<(.+)>/)?.[1] || 'admin@foxesnetwork.com'
+      : env.mailgunFromEmail,
+    subject: `Contact Form: ${subject}`,
+    html: adminHtml,
   });
 };
