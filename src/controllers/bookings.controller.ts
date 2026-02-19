@@ -10,6 +10,31 @@ import { generateTicketPdf } from '../services/pdf.service';
 import { createMockRefund } from '../services/stripe.service';
 import { Availability } from '../models/Availability';
 
+const adminRoles = ['super-admin', 'brand-admin', 'manager'];
+
+const hasTenantAccess = (req: AuthRequest, tenantId?: unknown): boolean => {
+  if (!req.user || !tenantId) return false;
+  if (req.user.role === 'super-admin') return true;
+  if (!adminRoles.includes(req.user.role)) return false;
+
+  return (req.user.assignedTenants || []).some(
+    (assignedTenantId) => assignedTenantId.toString() === String(tenantId)
+  );
+};
+
+const canAccessBooking = (req: AuthRequest, ownerId?: unknown, tenantId?: unknown): boolean => {
+  if (!req.user) return false;
+  if (req.user.role === 'super-admin') return true;
+
+  if (adminRoles.includes(req.user.role)) {
+    const isOwner =
+      ownerId !== undefined && ownerId !== null && String(ownerId) === req.user._id.toString();
+    return isOwner || hasTenantAccess(req, tenantId);
+  }
+
+  return ownerId !== undefined && ownerId !== null && String(ownerId) === req.user._id.toString();
+};
+
 export const createBooking = async (
   req: AuthRequest,
   res: Response,
@@ -25,11 +50,46 @@ export const createBooking = async (
       return;
     }
 
-    // Calculate totals
-    let subtotal = 0;
-    items.forEach((item: { totalPrice: number }) => {
-      subtotal += item.totalPrice;
+    if (req.tenant && !attraction.tenantIds.some((id) => id.toString() === req.tenant?._id.toString())) {
+      sendError(res, 'Attraction not available for this tenant', 403);
+      return;
+    }
+
+    // Recalculate line items on the server to prevent client-side price tampering.
+    const normalizedItems = items.map((item: {
+      optionId: string;
+      date: string;
+      time?: string;
+      quantities: { adults: number; children: number; infants: number };
+    }) => {
+      const option = attraction.pricingOptions.find((o) => o.id === item.optionId);
+      if (!option) {
+        throw new Error(`INVALID_OPTION:${item.optionId}`);
+      }
+
+      const payableGuests = (item.quantities?.adults || 0) + (item.quantities?.children || 0);
+      if (payableGuests <= 0) {
+        throw new Error('INVALID_QUANTITY');
+      }
+
+      const unitPrice = option.price;
+      const totalPrice = Math.round(unitPrice * payableGuests * 100) / 100;
+
+      return {
+        optionId: option.id,
+        optionName: option.name,
+        date: item.date,
+        time: item.time,
+        quantities: item.quantities,
+        unitPrice,
+        totalPrice,
+      };
     });
+
+    const subtotal = normalizedItems.reduce(
+      (acc: number, item: { totalPrice: number }) => acc + item.totalPrice,
+      0
+    );
 
     const fees = Math.round(subtotal * 0.05 * 100) / 100; // 5% service fee
     let discount = 0;
@@ -60,13 +120,19 @@ export const createBooking = async (
 
     const total = subtotal + fees - discount;
 
+    const tenantId = req.tenant?._id || attraction.tenantIds[0];
+    if (!tenantId) {
+      sendError(res, 'Attraction is not assigned to any tenant', 400);
+      return;
+    }
+
     // Create booking
     const booking = await Booking.create({
       reference: generateBookingReference(),
       userId: req.user?._id,
-      tenantId: req.tenant?._id || attraction.tenantIds[0],
+      tenantId,
       attractionId,
-      items,
+      items: normalizedItems,
       guestDetails,
       subtotal,
       fees,
@@ -110,6 +176,14 @@ export const createBooking = async (
 
     sendSuccess(res, booking, 'Booking created successfully', 201);
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('INVALID_OPTION:')) {
+      sendError(res, 'Invalid pricing option selected', 400);
+      return;
+    }
+    if (error instanceof Error && error.message === 'INVALID_QUANTITY') {
+      sendError(res, 'At least one paid guest is required', 400);
+      return;
+    }
     next(error);
   }
 };
@@ -131,15 +205,9 @@ export const getBookingByReference = async (
       return;
     }
 
-    // Check authorization - allow if user owns booking, is admin, or guest email matches
-    if (req.user) {
-      if (
-        booking.userId?.toString() !== req.user._id.toString() &&
-        !['super-admin', 'brand-admin', 'manager'].includes(req.user.role)
-      ) {
-        sendError(res, 'Not authorized to view this booking', 403);
-        return;
-      }
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
+      sendError(res, 'Not authorized to view this booking', 403);
+      return;
     }
 
     sendSuccess(res, booking);
@@ -199,12 +267,7 @@ export const cancelBooking = async (
       return;
     }
 
-    // Check authorization
-    if (
-      req.user &&
-      booking.userId?.toString() !== req.user._id.toString() &&
-      !['super-admin', 'brand-admin', 'manager'].includes(req.user.role)
-    ) {
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
       sendError(res, 'Not authorized to cancel this booking', 403);
       return;
     }
@@ -215,9 +278,6 @@ export const cancelBooking = async (
       return;
     }
 
-    // Update booking status
-    booking.status = 'cancelled';
-
     // If payment was made, process refund
     if (booking.paymentStatus === 'succeeded' && booking.stripePaymentIntentId) {
       createMockRefund(booking.stripePaymentIntentId, Math.round(booking.total * 100));
@@ -225,6 +285,7 @@ export const cancelBooking = async (
       booking.status = 'refunded';
     }
 
+    booking.status = 'cancelled';
     await booking.save();
 
     sendSuccess(res, booking, 'Booking cancelled successfully');
@@ -248,12 +309,7 @@ export const getBookingTicket = async (
       return;
     }
 
-    // Check authorization
-    if (
-      req.user &&
-      booking.userId?.toString() !== req.user._id.toString() &&
-      !['super-admin', 'brand-admin', 'manager'].includes(req.user.role)
-    ) {
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
       sendError(res, 'Not authorized to access this ticket', 403);
       return;
     }
@@ -311,8 +367,12 @@ export const getAllBookings = async (
     const query: Record<string, unknown> = {};
 
     // Filter by tenant for non-super-admins
-    if (req.user?.role !== 'super-admin' && req.tenant) {
-      query.tenantId = req.tenant._id;
+    if (req.user?.role !== 'super-admin') {
+      if (req.tenant) {
+        query.tenantId = req.tenant._id;
+      } else {
+        query.tenantId = { $in: req.user?.assignedTenants || [] };
+      }
     }
 
     if (status) {
@@ -361,20 +421,26 @@ export const updateBookingStatus = async (
     const { id } = req.params;
     const { status, paymentStatus } = req.body;
 
-    const updates: Record<string, unknown> = {};
-    if (status) updates.status = status;
-    if (paymentStatus) updates.paymentStatus = paymentStatus;
-
-    const booking = await Booking.findByIdAndUpdate(
-      id,
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
+    const booking = await Booking.findById(id);
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
       return;
     }
+
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
+      sendError(res, 'Not authorized to update this booking', 403);
+      return;
+    }
+
+    if (status) {
+      booking.status = status;
+    }
+    if (paymentStatus) {
+      booking.paymentStatus = paymentStatus;
+    }
+
+    await booking.save();
 
     sendSuccess(res, booking, 'Booking updated successfully');
   } catch (error) {
@@ -391,8 +457,12 @@ export const getBookingStats = async (
   try {
     const query: Record<string, unknown> = {};
 
-    if (req.user?.role !== 'super-admin' && req.tenant) {
-      query.tenantId = req.tenant._id;
+    if (req.user?.role !== 'super-admin') {
+      if (req.tenant) {
+        query.tenantId = req.tenant._id;
+      } else {
+        query.tenantId = { $in: req.user?.assignedTenants || [] };
+      }
     }
 
     const [totalBookings, confirmedBookings, pendingBookings, cancelledBookings, revenue] = await Promise.all([

@@ -60,6 +60,8 @@ router.post(
  *   get:
  *     summary: Get booking by reference
  *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: reference
@@ -82,7 +84,7 @@ router.post(
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.get('/reference/:reference', optionalAuth, getBookingByReference);
+router.get('/reference/:reference', authenticate, getBookingByReference);
 
 /**
  * @swagger
@@ -136,7 +138,7 @@ router.get('/my', authenticate, validateQuery(paginationSchema), getMyBookings);
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.patch('/:id/cancel', optionalAuth, cancelBooking);
+router.patch('/:id/cancel', authenticate, cancelBooking);
 
 /**
  * @swagger
@@ -158,7 +160,7 @@ router.patch('/:id/cancel', optionalAuth, cancelBooking);
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.get('/:id/ticket', optionalAuth, getBookingTicket);
+router.get('/:id/ticket', authenticate, getBookingTicket);
 
 /**
  * @swagger

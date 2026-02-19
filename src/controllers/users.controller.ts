@@ -192,8 +192,9 @@ export const inviteUser = async (
       return;
     }
 
-    // Generate temporary password
-    const tempPassword = generateRandomToken(16);
+    // Generate secure temporary password and dedicated invitation token
+    const tempPassword = generateRandomToken(24);
+    const invitationToken = generateRandomToken();
 
     // Create user with pending status
     const user = await User.create({
@@ -204,12 +205,17 @@ export const inviteUser = async (
       role,
       status: 'pending',
       assignedTenants,
-      passwordResetToken: hashToken(tempPassword),
+      passwordResetToken: hashToken(invitationToken),
       passwordResetExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
 
     // Send invitation email
-    await sendUserInvitation(email, tempPassword, req.user?.firstName || 'Admin', role);
+    await sendUserInvitation(
+      user.email,
+      invitationToken,
+      req.user ? `${req.user.firstName} ${req.user.lastName}`.trim() : 'Attractions Network',
+      role
+    );
 
     sendSuccess(res, user, 'User invited successfully', 201);
   } catch (error) {

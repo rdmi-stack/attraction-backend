@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { env } from '../config';
 import authRoutes from './auth.routes';
 import attractionsRoutes from './attractions.routes';
 import bookingsRoutes from './bookings.routes';
@@ -32,6 +33,23 @@ router.use('/stats', statsRoutes);
 // API Documentation - Homepage (HTML)
 router.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}/api`;
+  const testAccountsSection = env.isDev
+    ? `
+    <div class="test-accounts">
+      <h3>Test Accounts (Development only)</h3>
+      <div class="account">
+        <span>Admin:</span>
+        <code>admin@attractions-network.com</code>
+        <code>Admin@123456</code>
+      </div>
+      <div class="account">
+        <span>Customer:</span>
+        <code>customer@example.com</code>
+        <code>Customer@123</code>
+      </div>
+    </div>
+    `
+    : '';
   
   const html = `
 <!DOCTYPE html>
@@ -110,19 +128,7 @@ router.get('/', (req, res) => {
       <a href="${baseUrl}/attractions/featured" class="quick-link">Featured<span>GET /api/attractions/featured</span></a>
     </div>
     
-    <div class="test-accounts">
-      <h3>Test Accounts</h3>
-      <div class="account">
-        <span>Admin:</span>
-        <code>admin@attractions-network.com</code>
-        <code>Admin@123456</code>
-      </div>
-      <div class="account">
-        <span>Customer:</span>
-        <code>customer@example.com</code>
-        <code>Customer@123</code>
-      </div>
-    </div>
+    ${testAccountsSection}
     
     <div class="section">
       <h2 class="section-title"><span class="icon">🔐</span> Authentication</h2>
@@ -160,7 +166,7 @@ router.get('/', (req, res) => {
       <div class="endpoint-group">
         <div class="endpoint-group-header">Bookings <code>/api/bookings</code></div>
         <div class="endpoint"><span class="method POST">POST</span><div class="endpoint-info"><span class="endpoint-path">/</span><span class="endpoint-desc">Create booking</span></div><span class="auth-badge public">Optional</span></div>
-        <div class="endpoint"><span class="method GET">GET</span><div class="endpoint-info"><span class="endpoint-path">/reference/:reference</span><span class="endpoint-desc">Get booking by reference</span></div><span class="auth-badge public">Optional</span></div>
+        <div class="endpoint"><span class="method GET">GET</span><div class="endpoint-info"><span class="endpoint-path">/reference/:reference</span><span class="endpoint-desc">Get booking by reference</span></div><span class="auth-badge auth">Auth</span></div>
         <div class="endpoint"><span class="method GET">GET</span><div class="endpoint-info"><span class="endpoint-path">/my</span><span class="endpoint-desc">Get user bookings</span></div><span class="auth-badge auth">Auth</span></div>
         <div class="endpoint"><span class="method PATCH">PATCH</span><div class="endpoint-info"><span class="endpoint-path">/:id/cancel</span><span class="endpoint-desc">Cancel booking</span></div><span class="auth-badge auth">Auth</span></div>
         <div class="endpoint"><span class="method GET">GET</span><div class="endpoint-info"><span class="endpoint-path">/:id/ticket</span><span class="endpoint-desc">Download ticket PDF</span></div><span class="auth-badge auth">Auth</span></div>

@@ -7,6 +7,31 @@ import { createMockPaymentIntent, confirmMockPayment, createMockRefund } from '.
 import { generateTicketPdf } from '../services/pdf.service';
 import { sendBookingConfirmation } from '../services/email.service';
 
+const adminRoles = ['super-admin', 'brand-admin', 'manager'];
+
+const hasTenantAccess = (req: AuthRequest, tenantId?: unknown): boolean => {
+  if (!req.user || !tenantId) return false;
+  if (req.user.role === 'super-admin') return true;
+  if (!adminRoles.includes(req.user.role)) return false;
+
+  return (req.user.assignedTenants || []).some(
+    (assignedTenantId) => assignedTenantId.toString() === String(tenantId)
+  );
+};
+
+const canAccessBooking = (req: AuthRequest, ownerId?: unknown, tenantId?: unknown): boolean => {
+  if (!req.user) return false;
+  if (req.user.role === 'super-admin') return true;
+
+  if (adminRoles.includes(req.user.role)) {
+    const isOwner =
+      ownerId !== undefined && ownerId !== null && String(ownerId) === req.user._id.toString();
+    return isOwner || hasTenantAccess(req, tenantId);
+  }
+
+  return ownerId !== undefined && ownerId !== null && String(ownerId) === req.user._id.toString();
+};
+
 export const createPaymentIntent = async (
   req: AuthRequest,
   res: Response,
@@ -19,6 +44,11 @@ export const createPaymentIntent = async (
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
+      return;
+    }
+
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
+      sendError(res, 'Not authorized to process payment for this booking', 403);
       return;
     }
 
@@ -145,6 +175,7 @@ export const handleWebhook = async (
   // Mock webhook handler - in production, this would verify Stripe webhook signatures
   // For now, we handle payments via the confirmPayment endpoint directly
   try {
+    // Mock webhook handler - payments are handled via confirmPayment endpoint
     res.json({ received: true });
   } catch (error) {
     next(error);
@@ -160,11 +191,16 @@ export const getPaymentStatus = async (
     const { bookingId } = req.params;
 
     const booking = await Booking.findById(bookingId).select(
-      'reference paymentStatus status total currency'
+      'reference paymentStatus status total currency userId tenantId'
     );
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
+      return;
+    }
+
+    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
+      sendError(res, 'Not authorized to view this payment', 403);
       return;
     }
 
@@ -193,6 +229,16 @@ export const refundPayment = async (
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
+      return;
+    }
+
+    if (!req.user) {
+      sendError(res, 'Authentication required', 401);
+      return;
+    }
+
+    if (!hasTenantAccess(req, booking.tenantId)) {
+      sendError(res, 'Not authorized to refund this booking', 403);
       return;
     }
 

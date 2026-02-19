@@ -54,7 +54,7 @@ export const register = async (
     res.cookie('accessToken', accessToken, COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, { ...COOKIE_OPTIONS, path: '/api/auth/refresh' });
 
-    sendSuccess(res, { user, accessToken }, 'Registration successful', 201);
+    sendSuccess(res, { user, accessToken, refreshToken }, 'Registration successful', 201);
   } catch (error) {
     next(error);
   }
@@ -106,7 +106,7 @@ export const login = async (
     // Remove password from response
     const userResponse = user.toJSON();
 
-    sendSuccess(res, { user: userResponse, accessToken }, 'Login successful');
+    sendSuccess(res, { user: userResponse, accessToken, refreshToken }, 'Login successful');
   } catch (error) {
     next(error);
   }
@@ -237,7 +237,11 @@ export const forgotPassword = async (
     await user.save();
 
     // Send password reset email
-    await sendPasswordResetEmail(user.email, resetToken, user.firstName || 'User');
+    await sendPasswordResetEmail(
+      user.email,
+      resetToken,
+      `${user.firstName} ${user.lastName}`.trim()
+    );
 
     sendSuccess(res, null, 'If the email exists, a password reset link will be sent');
   } catch (error) {

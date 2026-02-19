@@ -10,87 +10,96 @@ import { env, connectDatabase, corsOptions, swaggerSpec } from './config';
 import routes from './routes';
 import { notFoundHandler, errorHandler, apiLimiter } from './middleware';
 
-const app = express();
+export const createApp = (): express.Application => {
+  const app = express();
 
-// Trust proxy (for rate limiting behind reverse proxy)
-app.set('trust proxy', 1);
+  // Trust proxy (for rate limiting behind reverse proxy)
+  app.set('trust proxy', 1);
 
-// Security middleware - allow swagger UI assets
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", ...env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean)],
-        fontSrc: ["'self'", 'https:', 'data:'],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
+  // Security middleware - allow swagger UI assets
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+          connectSrc: ["'self'", ...env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean)],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+        },
       },
+      crossOriginEmbedderPolicy: false,
+    })
+  );
+
+  // CORS
+  app.use(cors(corsOptions));
+
+  // Request logging
+  if (env.isDev) {
+    app.use(morgan('dev'));
+  } else {
+    app.use(morgan('combined'));
+  }
+
+  // Stripe requires raw body for webhook signature validation.
+  // This middleware must run before JSON/body parsing.
+  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+  // Body parsing
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // Cookie parsing
+  app.use(cookieParser());
+
+  // Compression
+  app.use(compression());
+
+  // Rate limiting
+  app.use('/api', apiLimiter);
+
+  // Swagger documentation
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .info .title { color: #3b82f6 }
+    `,
+    customSiteTitle: 'Attractions Network API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      docExpansion: 'none',
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
     },
-    crossOriginEmbedderPolicy: false,
-  })
-);
+  }));
 
-// CORS
-app.use(cors(corsOptions));
+  // Swagger JSON endpoint
+  app.get('/api/docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 
-// Request logging
-if (env.isDev) {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+  // API routes
+  app.use('/api', routes);
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // 404 handler
+  app.use(notFoundHandler);
 
-// Cookie parsing
-app.use(cookieParser());
+  // Error handler
+  app.use(errorHandler);
 
-// Compression
-app.use(compression());
+  return app;
+};
 
-// Rate limiting
-app.use('/api', apiLimiter);
+const app = createApp();
 
-// Swagger documentation
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: `
-    .swagger-ui .topbar { display: none }
-    .swagger-ui .info .title { color: #3b82f6 }
-  `,
-  customSiteTitle: 'Attractions Network API Docs',
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    docExpansion: 'none',
-    filter: true,
-    showExtensions: true,
-    showCommonExtensions: true,
-  },
-}));
-
-// Swagger JSON endpoint
-app.get('/api/docs.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
-
-// API routes
-app.use('/api', routes);
-
-// 404 handler
-app.use(notFoundHandler);
-
-// Error handler
-app.use(errorHandler);
-
-// Start server
-const startServer = async (): Promise<void> => {
+export const startServer = async (): Promise<void> => {
   try {
     // Connect to database
     await connectDatabase();
@@ -112,24 +121,26 @@ const startServer = async (): Promise<void> => {
   }
 };
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
-});
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    process.exit(0);
+  });
 
-startServer();
+  startServer();
+}
 
 export default app;

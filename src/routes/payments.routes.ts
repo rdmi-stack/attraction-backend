@@ -1,4 +1,4 @@
-import { Router, raw } from 'express';
+import { Router } from 'express';
 import {
   createPaymentIntent,
   confirmPayment,
@@ -31,7 +31,7 @@ const router = Router();
  *       400:
  *         description: Invalid webhook signature
  */
-router.post('/webhook', raw({ type: 'application/json' }), handleWebhook);
+router.post('/webhook', handleWebhook);
 
 /**
  * @swagger
@@ -80,7 +80,7 @@ router.post('/webhook', raw({ type: 'application/json' }), handleWebhook);
  */
 router.post(
   '/create-intent',
-  optionalAuth,
+  authenticate,
   validate(createPaymentIntentSchema),
   createPaymentIntent
 );
@@ -155,7 +155,7 @@ router.post('/confirm', optionalAuth, confirmPayment);
  */
 router.get(
   '/:bookingId/status',
-  optionalAuth,
+  authenticate,
   getPaymentStatus
 );
 
