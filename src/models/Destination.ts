@@ -91,7 +91,7 @@ destinationSchema.virtual('attractionCount', {
   count: true,
 });
 
-destinationSchema.index({ name: 'text', country: 'text' });
+destinationSchema.index({ name: 'text', country: 'text' }, { language_override: 'textSearchLanguage' });
 destinationSchema.index({ sortOrder: 1, isActive: 1 });
 
 export const Destination = mongoose.model<IDestination>('Destination', destinationSchema);
