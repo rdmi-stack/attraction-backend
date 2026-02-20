@@ -69,6 +69,11 @@ const tenantSchema = new Schema<ITenant>(
         default: 'Inter',
       },
     },
+    designMode: {
+      type: String,
+      enum: ['default', 'luxury', 'minimal'],
+      default: 'default',
+    },
     defaultCurrency: {
       type: String,
       required: true,

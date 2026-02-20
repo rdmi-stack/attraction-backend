@@ -1,9 +1,14 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import app from '../app';
 import { Attraction } from '../models/Attraction';
 import { Booking } from '../models/Booking';
 import { User } from '../models/User';
 import { verifyToken } from '../utils/jwt';
+
+// Valid MongoDB ObjectIds for tests
+const ATTR_ID = new Types.ObjectId().toHexString();
+const TENANT_ID = new Types.ObjectId().toHexString();
 
 jest.mock('../utils/jwt', () => ({
   ...jest.requireActual('../utils/jwt'),
@@ -28,6 +33,19 @@ jest.mock('../models/Booking', () => ({
 jest.mock('../models/User', () => ({
   User: {
     findById: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
+  },
+}));
+
+jest.mock('../models/Availability', () => ({
+  Availability: {
+    findOneAndUpdate: jest.fn().mockResolvedValue(null),
+  },
+}));
+
+jest.mock('../models/PromoCode', () => ({
+  PromoCode: {
+    findOne: jest.fn().mockResolvedValue(null),
   },
 }));
 
@@ -59,9 +77,9 @@ describe('API security and pricing guards', () => {
 
   it('recalculates booking line-item prices on the server', async () => {
     (Attraction.findById as jest.Mock).mockResolvedValue({
-      _id: 'attr-1',
+      _id: ATTR_ID,
       currency: 'USD',
-      tenantIds: ['tenant-1'],
+      tenantIds: [TENANT_ID],
       pricingOptions: [
         { id: 'adult-option', name: 'Adult Ticket', price: 50 },
       ],
@@ -72,7 +90,7 @@ describe('API security and pricing guards', () => {
     const response = await request(app)
       .post('/api/bookings')
       .send({
-        attractionId: 'attr-1',
+        attractionId: ATTR_ID,
         items: [
           {
             optionId: 'adult-option',
@@ -104,16 +122,16 @@ describe('API security and pricing guards', () => {
 
   it('rejects unknown pricing options', async () => {
     (Attraction.findById as jest.Mock).mockResolvedValue({
-      _id: 'attr-1',
+      _id: ATTR_ID,
       currency: 'USD',
-      tenantIds: ['tenant-1'],
+      tenantIds: [TENANT_ID],
       pricingOptions: [{ id: 'known-option', name: 'Known', price: 40 }],
     });
 
     const response = await request(app)
       .post('/api/bookings')
       .send({
-        attractionId: 'attr-1',
+        attractionId: ATTR_ID,
         items: [
           {
             optionId: 'unknown-option',
