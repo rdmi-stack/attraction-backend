@@ -9,6 +9,13 @@ const allowedOrigins = [
   'http://localhost:3001',
 ];
 
+// Patterns for dynamic subdomain matching
+const allowedPatterns = [
+  /\.netlify\.app$/,
+  /\.foxesnetwork\.com$/,
+  /\.up\.railway\.app$/,
+];
+
 export const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
@@ -16,15 +23,26 @@ export const corsOptions: CorsOptions = {
       return callback(null, true);
     }
 
+    // Check exact match
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+
+    // Check pattern match (subdomains)
+    try {
+      const hostname = new URL(origin).hostname;
+      if (allowedPatterns.some((pattern) => pattern.test(hostname))) {
+        return callback(null, true);
+      }
+    } catch {
+      // Invalid URL, reject
+    }
+
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Tenant-Slug'],
   exposedHeaders: ['X-Total-Count', 'X-Total-Pages'],
   maxAge: 86400, // 24 hours
 };
