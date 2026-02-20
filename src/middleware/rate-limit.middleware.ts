@@ -1,6 +1,15 @@
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env';
 
+const isLocalAddress = (ip?: string): boolean => {
+  if (!ip) return false;
+  const normalized = ip.replace('::ffff:', '');
+  return normalized === '127.0.0.1' || normalized === '::1';
+};
+
+const shouldSkipRateLimit = (ip?: string): boolean =>
+  env.nodeEnv !== 'production' && isLocalAddress(ip);
+
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs, // 15 minutes by default
@@ -11,6 +20,7 @@ export const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit(req.ip),
 });
 
 // Strict limiter for auth endpoints
@@ -24,6 +34,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  skip: (req) => shouldSkipRateLimit(req.ip),
 });
 
 // Limiter for password reset
@@ -36,6 +47,7 @@ export const passwordResetLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit(req.ip),
 });
 
 // Limiter for creating bookings
@@ -48,6 +60,7 @@ export const bookingLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit(req.ip),
 });
 
 // Limiter for search endpoints
@@ -60,4 +73,5 @@ export const searchLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit(req.ip),
 });
