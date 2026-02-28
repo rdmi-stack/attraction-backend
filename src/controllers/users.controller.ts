@@ -122,6 +122,18 @@ export const getUsers = async (
 
     const query: Record<string, unknown> = {};
 
+    // Non-super-admins can only see users who share at least one of their assigned tenants
+    if (req.user && req.user.role !== 'super-admin') {
+      const userTenantIds = req.user.assignedTenants || [];
+      if (userTenantIds.length > 0) {
+        query.assignedTenants = { $in: userTenantIds };
+      } else {
+        // No assigned tenants — return empty
+        sendPaginated(res, [], pageNum, limitNum, 0);
+        return;
+      }
+    }
+
     if (role) {
       query.role = role;
     }

@@ -6,7 +6,7 @@ import {
   updateCategory,
   deleteCategory,
 } from '../controllers/categories.controller';
-import { authenticate, requireRole } from '../middleware/auth.middleware';
+import { authenticate, requireSuperAdmin } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { createCategorySchema, updateCategorySchema } from '../utils/validators';
 
@@ -111,7 +111,7 @@ router.get('/:slug', getCategoryBySlug);
 router.post(
   '/',
   authenticate,
-  requireRole('super-admin', 'brand-admin', 'manager'),
+  requireSuperAdmin,
   validate(createCategorySchema),
   createCategory
 );
@@ -155,7 +155,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  requireRole('super-admin', 'brand-admin', 'manager'),
+  requireSuperAdmin,
   validate(updateCategorySchema),
   updateCategory
 );
@@ -185,7 +185,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  requireRole('super-admin', 'brand-admin'),
+  requireSuperAdmin,
   deleteCategory
 );
 

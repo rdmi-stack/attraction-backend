@@ -216,6 +216,68 @@ export const deleteTenant = async (
   }
 };
 
+/**
+ * Brand-admin safe endpoint – only allows updating a restricted set of fields.
+ * Full tenant update (name, status, slug, domain, etc.) stays super-admin only.
+ */
+export const updateTenantSettings = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Allow-list of fields brand-admins may change on their own sites
+    const allowedFields = [
+      'contactInfo',
+      'socialLinks',
+      'paymentSettings',
+      'seoSettings',
+      'aiSettings',
+      'theme',
+      'fonts',
+      'designMode',
+      'tagline',
+      'description',
+      'logo',
+      'logoDark',
+      'favicon',
+      'defaultCurrency',
+      'defaultLanguage',
+      'supportedLanguages',
+      'timezone',
+    ];
+
+    const updates: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      sendError(res, 'No valid fields to update', 400);
+      return;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      sendError(res, 'Tenant not found', 404);
+      return;
+    }
+
+    sendSuccess(res, tenant, 'Site settings updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Dashboard stats for tenant
 export const getTenantStats = async (
   req: AuthRequest,

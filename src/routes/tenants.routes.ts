@@ -7,6 +7,7 @@ import {
   getTenantBySlug,
   createTenant,
   updateTenant,
+  updateTenantSettings,
   deleteTenant,
   getTenantStats,
 } from '../controllers/tenants.controller';
@@ -246,6 +247,50 @@ router.post(
   requireSuperAdmin,
   validate(createTenantSchema),
   createTenant
+);
+
+/**
+ * @swagger
+ * /tenants/{id}/settings:
+ *   patch:
+ *     summary: Update tenant settings (Brand Admin+)
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               contactInfo:
+ *                 type: object
+ *               socialLinks:
+ *                 type: object
+ *               paymentSettings:
+ *                 type: object
+ *               theme:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Tenant settings updated
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
+router.patch(
+  '/:id/settings',
+  authenticate,
+  requireAdmin,
+  canAccessTenant,
+  updateTenantSettings
 );
 
 /**

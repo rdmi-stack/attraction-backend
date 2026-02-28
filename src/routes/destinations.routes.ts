@@ -7,7 +7,7 @@ import {
   updateDestination,
   deleteDestination,
 } from '../controllers/destinations.controller';
-import { authenticate, requireRole } from '../middleware/auth.middleware';
+import { authenticate, requireSuperAdmin } from '../middleware/auth.middleware';
 import { validate, validateQuery } from '../middleware/validate.middleware';
 import { createDestinationSchema, updateDestinationSchema, paginationSchema } from '../utils/validators';
 import { z } from 'zod';
@@ -184,7 +184,7 @@ router.get('/:slug', getDestinationBySlug);
 router.post(
   '/',
   authenticate,
-  requireRole('super-admin', 'brand-admin', 'manager'),
+  requireSuperAdmin,
   validate(createDestinationSchema),
   createDestination
 );
@@ -228,7 +228,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  requireRole('super-admin', 'brand-admin', 'manager'),
+  requireSuperAdmin,
   validate(updateDestinationSchema),
   updateDestination
 );
@@ -258,7 +258,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  requireRole('super-admin', 'brand-admin'),
+  requireSuperAdmin,
   deleteDestination
 );
 
