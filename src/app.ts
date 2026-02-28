@@ -1,3 +1,7 @@
+import dns from 'dns';
+// Use Google Public DNS to avoid local resolver issues with MongoDB Atlas SRV records
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
