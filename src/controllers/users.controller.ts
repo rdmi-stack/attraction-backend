@@ -270,18 +270,14 @@ export const deleteUser = async (
       return;
     }
 
-    const user = await User.findByIdAndUpdate(
-      id,
-      { status: 'inactive' },
-      { new: true }
-    );
+    const user = await User.findByIdAndDelete(id);
 
     if (!user) {
       sendError(res, 'User not found', 404);
       return;
     }
 
-    sendSuccess(res, null, 'User deactivated successfully');
+    sendSuccess(res, null, 'User deleted successfully');
   } catch (error) {
     next(error);
   }
