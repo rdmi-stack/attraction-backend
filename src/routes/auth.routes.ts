@@ -7,6 +7,7 @@ import {
   me,
   forgotPassword,
   resetPassword,
+  acceptInvitation,
   changePassword,
   updateProfile,
 } from '../controllers/auth.controller';
@@ -18,6 +19,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  acceptInvitationSchema,
   changePasswordSchema,
   updateProfileSchema,
 } from '../utils/validators';
@@ -156,6 +158,35 @@ router.post('/forgot-password', passwordResetLimiter, validate(forgotPasswordSch
  *         description: Invalid or expired token
  */
 router.post('/reset-password', validate(resetPasswordSchema), resetPassword);
+
+/**
+ * @swagger
+ * /auth/accept-invitation:
+ *   post:
+ *     summary: Accept invitation and set password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Invitation accepted successfully
+ *       400:
+ *         description: Invalid or expired invitation token
+ */
+router.post('/accept-invitation', passwordResetLimiter, validate(acceptInvitationSchema), acceptInvitation);
 
 /**
  * @swagger

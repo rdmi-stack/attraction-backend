@@ -3,6 +3,7 @@ import { Attraction } from '../models/Attraction';
 import { Review } from '../models/Review';
 import { Booking } from '../models/Booking';
 import { sendSuccess } from '../utils/response';
+import { AuthRequest } from '../types';
 
 export const getHomepageStats = async (
   req: Request,
@@ -47,6 +48,34 @@ export const getHomepageStats = async (
         : 4.9,
       totalBookings,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAdminStats = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const isSuperAdmin = req.user?.role === 'super-admin';
+    const assignedTenants = req.user?.assignedTenants ?? [];
+
+    const attractionFilter = isSuperAdmin
+      ? { status: 'active' }
+      : { status: 'active', tenantIds: { $in: assignedTenants } };
+
+    const bookingFilter = isSuperAdmin
+      ? { status: { $in: ['confirmed', 'completed'] } }
+      : { status: { $in: ['confirmed', 'completed'] }, tenantId: { $in: assignedTenants } };
+
+    const [totalAttractions, totalBookings] = await Promise.all([
+      Attraction.countDocuments(attractionFilter),
+      Booking.countDocuments(bookingFilter),
+    ]);
+
+    sendSuccess(res, { totalAttractions, totalBookings });
   } catch (error) {
     next(error);
   }

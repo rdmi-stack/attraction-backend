@@ -282,6 +282,45 @@ export const resetPassword = async (
   }
 };
 
+export const acceptInvitation = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { token, password } = req.body;
+
+    const hashedToken = hashToken(token);
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    }).select('+passwordResetToken +passwordResetExpires');
+
+    if (!user) {
+      sendError(res, 'Invalid or expired invitation token', 400);
+      return;
+    }
+
+    if (user.status !== 'pending') {
+      sendError(res, 'Invitation already accepted or account is not in pending state', 400);
+      return;
+    }
+
+    // Set password and activate account
+    user.password = password;
+    user.status = 'active';
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.refreshToken = undefined;
+    await user.save();
+
+    sendSuccess(res, null, 'Invitation accepted successfully. You can now log in.');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const changePassword = async (
   req: AuthRequest,
   res: Response,

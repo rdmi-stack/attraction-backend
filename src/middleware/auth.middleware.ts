@@ -147,7 +147,7 @@ export const canAccessTenant = (
     return;
   }
 
-  const tenantId = req.params.tenantId || req.body.tenantId || req.query.tenantId;
+  const tenantId = req.params.id || req.params.tenantId || req.body.tenantId || req.query.tenantId;
 
   if (!tenantId) {
     next();

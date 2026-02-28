@@ -18,8 +18,8 @@ export const getTenants = async (
     const query: Record<string, unknown> = {};
 
     // Non-super-admins can only see their assigned tenants
-    if (req.user?.role !== 'super-admin' && req.user?.assignedTenants.length) {
-      query._id = { $in: req.user.assignedTenants };
+    if (req.user?.role !== 'super-admin') {
+      query._id = { $in: req.user?.assignedTenants ?? [] };
     }
 
     if (status) {

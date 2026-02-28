@@ -50,11 +50,20 @@ export const getAttractions = async (
       query.status = status as string;
     }
 
-    // Filter by tenant if tenant context exists
+    // Filter by tenant context
     if (req.tenant) {
       query.tenantIds = { $in: [req.tenant._id] };
+    } else if (req.user && req.user.role !== 'super-admin') {
+      // Non-super-admin without explicit tenant context: scope to assigned tenants
+      const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
+      if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
+        query.tenantIds = { $in: req.user.assignedTenants };
+      } else if (adminRoles.includes(req.user.role)) {
+        // Admin with no assigned tenants sees nothing
+        sendPaginated(res, [], pageNum, limitNum, 0);
+        return;
+      }
     }
-    // When no tenant context, show all attractions (for development/global access)
 
     if (category) {
       query.category = category as string;
@@ -304,6 +313,16 @@ export const createAttraction = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Non-super-admins can only assign attractions to their own tenants
+    if (req.user?.role !== 'super-admin' && req.body.tenantIds?.length) {
+      const assignedSet = new Set((req.user?.assignedTenants || []).map((t: Types.ObjectId) => t.toString()));
+      const unauthorized = req.body.tenantIds.filter((id: string) => !assignedSet.has(id));
+      if (unauthorized.length > 0) {
+        sendError(res, 'Cannot assign attraction to a tenant you do not manage', 403);
+        return;
+      }
+    }
+
     const attractionData = {
       ...req.body,
       createdBy: req.user?._id,
@@ -324,6 +343,21 @@ export const updateAttraction = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+
+    // Non-super-admins can only update attractions in their assigned tenants
+    if (req.user?.role !== 'super-admin') {
+      const existing = await Attraction.findById(id);
+      if (!existing) {
+        sendError(res, 'Attraction not found', 404);
+        return;
+      }
+      const assignedSet = new Set((req.user?.assignedTenants || []).map((t: Types.ObjectId) => t.toString()));
+      const hasAccess = existing.tenantIds?.some((tid: Types.ObjectId) => assignedSet.has(tid.toString()));
+      if (!hasAccess) {
+        sendError(res, 'Access denied to this attraction', 403);
+        return;
+      }
+    }
 
     const attraction = await Attraction.findByIdAndUpdate(
       id,
@@ -349,6 +383,21 @@ export const deleteAttraction = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+
+    // Non-super-admins can only delete attractions in their assigned tenants
+    if (req.user?.role !== 'super-admin') {
+      const existing = await Attraction.findById(id);
+      if (!existing) {
+        sendError(res, 'Attraction not found', 404);
+        return;
+      }
+      const assignedSet = new Set((req.user?.assignedTenants || []).map((t: Types.ObjectId) => t.toString()));
+      const hasAccess = existing.tenantIds?.some((tid: Types.ObjectId) => assignedSet.has(tid.toString()));
+      if (!hasAccess) {
+        sendError(res, 'Access denied to this attraction', 403);
+        return;
+      }
+    }
 
     const attraction = await Attraction.findByIdAndUpdate(
       id,
