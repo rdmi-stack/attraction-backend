@@ -133,6 +133,17 @@ export const getAttractionBySlug = async (
       return;
     }
 
+    // For authenticated admin users (non-super-admin), verify they have access to this attraction's tenants
+    if (req.user && req.user.role !== 'super-admin' && req.user.role !== 'customer' && req.user.role !== 'guest') {
+      const userTenantIds = (req.user.assignedTenants || []).map((t) => t.toString());
+      const attractionTenantIds = (attraction.tenantIds || []).map((t) => t.toString());
+      const hasAccess = attractionTenantIds.some((tid) => userTenantIds.includes(tid));
+      if (!hasAccess && userTenantIds.length > 0) {
+        sendError(res, 'Attraction not found', 404);
+        return;
+      }
+    }
+
     sendSuccess(res, attraction);
   } catch (error) {
     next(error);
@@ -152,6 +163,17 @@ export const getAttractionById = async (
     if (!attraction) {
       sendError(res, 'Attraction not found', 404);
       return;
+    }
+
+    // For non-super-admin users, verify they have access to this attraction's tenants
+    if (req.user && req.user.role !== 'super-admin') {
+      const userTenantIds = (req.user.assignedTenants || []).map((t) => t.toString());
+      const attractionTenantIds = (attraction.tenantIds || []).map((t) => t.toString());
+      const hasAccess = attractionTenantIds.some((tid) => userTenantIds.includes(tid));
+      if (!hasAccess && userTenantIds.length > 0) {
+        sendError(res, 'Access denied to this attraction', 403);
+        return;
+      }
     }
 
     sendSuccess(res, attraction);
@@ -425,10 +447,22 @@ export const getFeaturedAttractions = async (
   try {
     const { limit = 6 } = req.query;
 
-    const attractions = await Attraction.find({
+    const query: Record<string, unknown> = {
       status: 'active',
       featured: true,
-    })
+    };
+
+    // Scope to tenant context or user's assigned tenants
+    if (req.tenant) {
+      query.tenantIds = { $in: [req.tenant._id] };
+    } else if (req.user && req.user.role !== 'super-admin') {
+      const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
+      if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
+        query.tenantIds = { $in: req.user.assignedTenants };
+      }
+    }
+
+    const attractions = await Attraction.find(query)
       .sort({ sortOrder: 1, rating: -1 })
       .limit(parseInt(limit as string, 10))
       .lean();

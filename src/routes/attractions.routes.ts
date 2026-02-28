@@ -131,7 +131,7 @@ router.get(
  *                   items:
  *                     $ref: '#/components/schemas/Attraction'
  */
-router.get('/featured', optionalTenant, getFeaturedAttractions);
+router.get('/featured', optionalAuth, optionalTenant, getFeaturedAttractions);
 
 /**
  * @swagger
