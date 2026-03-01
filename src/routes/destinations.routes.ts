@@ -7,7 +7,8 @@ import {
   updateDestination,
   deleteDestination,
 } from '../controllers/destinations.controller';
-import { authenticate, requireSuperAdmin } from '../middleware/auth.middleware';
+import { authenticate, optionalAuth, requireSuperAdmin } from '../middleware/auth.middleware';
+import { optionalTenant } from '../middleware/tenant.middleware';
 import { validate, validateQuery } from '../middleware/validate.middleware';
 import { createDestinationSchema, updateDestinationSchema, paginationSchema } from '../utils/validators';
 import { z } from 'zod';
@@ -66,6 +67,8 @@ const router = Router();
  */
 router.get(
   '/',
+  optionalAuth,
+  optionalTenant,
   validateQuery(
     paginationSchema.merge(
       z.object({

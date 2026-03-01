@@ -15,6 +15,25 @@ export const getDestinations = async (
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
 
+    // Build attraction filter for tenant scoping
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attractionFilter: Record<string, any> = { status: 'active' };
+    let scopedToTenant = false;
+
+    if (req.tenant) {
+      attractionFilter.tenantIds = { $in: [req.tenant._id] };
+      scopedToTenant = true;
+    } else if (req.user && req.user.role !== 'super-admin') {
+      const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
+      if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
+        attractionFilter.tenantIds = { $in: req.user.assignedTenants };
+        scopedToTenant = true;
+      } else if (adminRoles.includes(req.user.role)) {
+        sendPaginated(res, [], pageNum, limitNum, 0);
+        return;
+      }
+    }
+
     const query: Record<string, unknown> = { isActive: true };
 
     if (continent) {
@@ -28,6 +47,12 @@ export const getDestinations = async (
       ];
     }
 
+    // If scoped to tenant, only return destinations that have matching attractions
+    if (scopedToTenant) {
+      const destinationCities = await Attraction.distinct('destination.city', attractionFilter);
+      query.name = { $in: destinationCities };
+    }
+
     const [destinations, total] = await Promise.all([
       Destination.find(query)
         .sort({ sortOrder: 1, name: 1 })
@@ -38,9 +63,9 @@ export const getDestinations = async (
     ]);
 
     if (includeCount === 'true') {
-      // Get attraction counts
+      // Get attraction counts scoped to tenant
       const counts = await Attraction.aggregate([
-        { $match: { status: 'active' } },
+        { $match: attractionFilter },
         { $group: { _id: '$destination.city', count: { $sum: 1 } } },
       ]);
 

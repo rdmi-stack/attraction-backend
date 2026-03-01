@@ -12,24 +12,30 @@ export const getCategories = async (
   try {
     const { includeCount = 'true' } = req.query;
 
+    // Build match filter – scope to tenant or user's assigned tenants
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const matchFilter: Record<string, any> = { status: 'active' };
+    let scopedToTenant = false;
+
+    if (req.tenant) {
+      matchFilter.tenantIds = { $in: [req.tenant._id] };
+      scopedToTenant = true;
+    } else if (req.user && req.user.role !== 'super-admin') {
+      const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
+      if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
+        matchFilter.tenantIds = { $in: req.user.assignedTenants };
+        scopedToTenant = true;
+      } else if (adminRoles.includes(req.user.role)) {
+        sendSuccess(res, []);
+        return;
+      }
+    }
+
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
       .lean();
 
     if (includeCount === 'true') {
-      // Build match filter – scope to tenant or user's assigned tenants
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const matchFilter: Record<string, any> = { status: 'active' };
-
-      if (req.tenant) {
-        matchFilter.tenantIds = { $in: [req.tenant._id] };
-      } else if (req.user && req.user.role !== 'super-admin') {
-        const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
-        if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
-          matchFilter.tenantIds = { $in: req.user.assignedTenants };
-        }
-      }
-
       // Get attraction counts for each category
       const counts = await Attraction.aggregate([
         { $match: matchFilter },
@@ -43,7 +49,16 @@ export const getCategories = async (
         count: countMap.get(cat.slug) || 0,
       }));
 
-      sendSuccess(res, categoriesWithCount);
+      // If scoped to tenant, only return categories that have >0 attractions
+      if (scopedToTenant) {
+        sendSuccess(res, categoriesWithCount.filter((c) => c.count > 0));
+      } else {
+        sendSuccess(res, categoriesWithCount);
+      }
+    } else if (scopedToTenant) {
+      // Even without counts, scope to categories with matching attractions
+      const categorySlugs = await Attraction.distinct('category', matchFilter);
+      sendSuccess(res, categories.filter((cat) => categorySlugs.includes(cat.slug)));
     } else {
       sendSuccess(res, categories);
     }
