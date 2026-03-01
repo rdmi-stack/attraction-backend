@@ -5,6 +5,7 @@ import { Availability } from '../models/Availability';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { Types } from 'mongoose';
+import { escapeRegex } from '../utils/helpers';
 
 interface AttractionQuery {
   status?: string;
@@ -70,7 +71,7 @@ export const getAttractions = async (
     }
 
     if (destination) {
-      query['destination.city'] = { $regex: new RegExp(destination as string, 'i') };
+      query['destination.city'] = { $regex: new RegExp(escapeRegex(destination as string), 'i') };
     }
 
     if (minPrice || maxPrice) {

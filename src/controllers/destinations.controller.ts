@@ -3,6 +3,7 @@ import { Destination } from '../models/Destination';
 import { Attraction } from '../models/Attraction';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
+import { escapeRegex } from '../utils/helpers';
 
 export const getDestinations = async (
   req: AuthRequest,
@@ -41,9 +42,10 @@ export const getDestinations = async (
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { country: { $regex: search, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { country: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 

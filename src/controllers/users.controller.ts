@@ -5,6 +5,7 @@ import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { generateRandomToken, hashToken } from '../utils/hash';
 import { sendUserInvitation } from '../services/email.service';
+import { escapeRegex } from '../utils/helpers';
 
 // User Profile Endpoints
 export const getProfile = async (
@@ -143,10 +144,11 @@ export const getUsers = async (
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       query.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
+        { firstName: { $regex: safeSearch, $options: 'i' } },
+        { lastName: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 

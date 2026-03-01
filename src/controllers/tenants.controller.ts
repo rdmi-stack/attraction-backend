@@ -4,6 +4,7 @@ import { Attraction } from '../models/Attraction';
 import { Booking } from '../models/Booking';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
+import { escapeRegex } from '../utils/helpers';
 
 export const getTenants = async (
   req: AuthRequest,
@@ -27,10 +28,11 @@ export const getTenants = async (
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { slug: { $regex: search, $options: 'i' } },
-        { domain: { $regex: search, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { slug: { $regex: safeSearch, $options: 'i' } },
+        { domain: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 

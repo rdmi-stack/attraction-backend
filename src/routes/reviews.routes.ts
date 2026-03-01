@@ -5,8 +5,10 @@ import {
   getReviewsByAttractionId,
   createReview,
   getReviewById,
+  getAdminReviews,
+  updateReviewStatus,
 } from '../controllers/reviews.controller';
-import { optionalAuth } from '../middleware/auth.middleware';
+import { optionalAuth, authenticate, requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -123,6 +125,10 @@ router.post('/', optionalAuth, createReview);
  *       200:
  *         description: Paginated reviews for the attraction
  */
+// Admin routes (must be before /:reviewId to avoid param conflict)
+router.get('/admin', authenticate, requireAdmin, getAdminReviews);
+router.patch('/:id/status', authenticate, requireAdmin, updateReviewStatus);
+
 router.get('/attraction/:attractionId', optionalAuth, getReviewsByAttractionId);
 
 /**

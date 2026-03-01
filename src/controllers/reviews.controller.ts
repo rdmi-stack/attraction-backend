@@ -1,7 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { Review } from '../models/Review';
-import { sendSuccess, sendError } from '../utils/response';
+import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
+import { sanitizeHtml, escapeRegex } from '../utils/helpers';
 
 export const getRecentReviews = async (
   req: AuthRequest,
@@ -125,14 +126,14 @@ export const createReview = async (
     const review = await Review.create({
       attractionId,
       rating,
-      title,
-      content,
-      author,
+      title: sanitizeHtml(title),
+      content: sanitizeHtml(content),
+      author: sanitizeHtml(author),
       country,
       images: images || [],
       userId: req.user?._id,
-      status: 'pending', // Reviews need moderation
-      verified: !!req.user?._id, // Verified if user is authenticated
+      status: 'pending',
+      verified: !!req.user?._id,
     });
 
     sendSuccess(res, await review.populate('attractionId', 'title slug'), 'Review created successfully', 201);
@@ -160,6 +161,95 @@ export const getReviewById = async (
     }
 
     sendSuccess(res, review);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin: Get all reviews with filters
+export const getAdminReviews = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(Math.max(1, Number(limit) || 20), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query: Record<string, any> = {};
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (search) {
+      const safeSearch = escapeRegex(search as string);
+      query.$or = [
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { content: { $regex: safeSearch, $options: 'i' } },
+        { author: { $regex: safeSearch, $options: 'i' } },
+      ];
+    }
+
+    const [reviews, total, pendingCount, approvedCount, rejectedCount] = await Promise.all([
+      Review.find(query)
+        .populate('attractionId', 'title slug')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Review.countDocuments(query),
+      Review.countDocuments({ status: 'pending' }),
+      Review.countDocuments({ status: 'approved' }),
+      Review.countDocuments({ status: 'rejected' }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: reviews,
+      stats: { pending: pendingCount, approved: approvedCount, rejected: rejectedCount, total: pendingCount + approvedCount + rejectedCount },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin: Approve or reject a review
+export const updateReviewStatus = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      sendError(res, 'Status must be "approved" or "rejected"', 400);
+      return;
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    ).populate('attractionId', 'title slug');
+
+    if (!review) {
+      sendError(res, 'Review not found', 404);
+      return;
+    }
+
+    sendSuccess(res, review, `Review ${status}`);
   } catch (error) {
     next(error);
   }

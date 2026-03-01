@@ -8,6 +8,7 @@ import { AuthRequest } from '../types';
 import { generateBookingReference } from '../utils/hash';
 import { generateTicketPdf } from '../services/pdf.service';
 import { createMockRefund } from '../services/stripe.service';
+import { escapeRegex } from '../utils/helpers';
 import { Availability } from '../models/Availability';
 
 const adminRoles = ['super-admin', 'brand-admin', 'manager'];
@@ -386,11 +387,12 @@ export const getAllBookings = async (
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search as string);
       query.$or = [
-        { reference: { $regex: search, $options: 'i' } },
-        { 'guestDetails.email': { $regex: search, $options: 'i' } },
-        { 'guestDetails.firstName': { $regex: search, $options: 'i' } },
-        { 'guestDetails.lastName': { $regex: search, $options: 'i' } },
+        { reference: { $regex: safeSearch, $options: 'i' } },
+        { 'guestDetails.email': { $regex: safeSearch, $options: 'i' } },
+        { 'guestDetails.firstName': { $regex: safeSearch, $options: 'i' } },
+        { 'guestDetails.lastName': { $regex: safeSearch, $options: 'i' } },
       ];
     }
 

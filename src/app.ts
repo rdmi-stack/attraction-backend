@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import mongoSanitize from 'express-mongo-sanitize';
 import swaggerUi from 'swagger-ui-express';
 
 import { env, connectDatabase, corsOptions, swaggerSpec } from './config';
@@ -59,6 +60,9 @@ export const createApp = (): express.Application => {
 
   // Cookie parsing
   app.use(cookieParser());
+
+  // Sanitize MongoDB operators from user input
+  app.use(mongoSanitize());
 
   // Compression
   app.use(compression());
