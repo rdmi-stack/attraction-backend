@@ -6,7 +6,8 @@ import {
   updateCategory,
   deleteCategory,
 } from '../controllers/categories.controller';
-import { authenticate, requireSuperAdmin } from '../middleware/auth.middleware';
+import { authenticate, optionalAuth, requireSuperAdmin } from '../middleware/auth.middleware';
+import { optionalTenant } from '../middleware/tenant.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { createCategorySchema, updateCategorySchema } from '../utils/validators';
 
@@ -40,7 +41,7 @@ const router = Router();
  *                   items:
  *                     $ref: '#/components/schemas/Category'
  */
-router.get('/', getCategories);
+router.get('/', optionalAuth, optionalTenant, getCategories);
 
 /**
  * @swagger

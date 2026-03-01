@@ -17,9 +17,22 @@ export const getCategories = async (
       .lean();
 
     if (includeCount === 'true') {
+      // Build match filter – scope to tenant or user's assigned tenants
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const matchFilter: Record<string, any> = { status: 'active' };
+
+      if (req.tenant) {
+        matchFilter.tenantIds = { $in: [req.tenant._id] };
+      } else if (req.user && req.user.role !== 'super-admin') {
+        const adminRoles = ['brand-admin', 'manager', 'editor', 'viewer'];
+        if (adminRoles.includes(req.user.role) && req.user.assignedTenants?.length > 0) {
+          matchFilter.tenantIds = { $in: req.user.assignedTenants };
+        }
+      }
+
       // Get attraction counts for each category
       const counts = await Attraction.aggregate([
-        { $match: { status: 'active' } },
+        { $match: matchFilter },
         { $group: { _id: '$category', count: { $sum: 1 } } },
       ]);
 

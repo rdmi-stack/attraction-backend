@@ -62,13 +62,22 @@ export const getAdminStats = async (
     const isSuperAdmin = req.user?.role === 'super-admin';
     const assignedTenants = req.user?.assignedTenants ?? [];
 
-    const attractionFilter = isSuperAdmin
-      ? { status: 'active' }
-      : { status: 'active', tenantIds: { $in: assignedTenants } };
+    // If a specific tenant is selected (via X-Tenant-ID header), scope to that tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let attractionFilter: Record<string, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let bookingFilter: Record<string, any>;
 
-    const bookingFilter = isSuperAdmin
-      ? { status: { $in: ['confirmed', 'completed'] } }
-      : { status: { $in: ['confirmed', 'completed'] }, tenantId: { $in: assignedTenants } };
+    if (req.tenant) {
+      attractionFilter = { status: 'active', tenantIds: { $in: [req.tenant._id] } };
+      bookingFilter = { status: { $in: ['confirmed', 'completed'] }, tenantId: req.tenant._id };
+    } else if (isSuperAdmin) {
+      attractionFilter = { status: 'active' };
+      bookingFilter = { status: { $in: ['confirmed', 'completed'] } };
+    } else {
+      attractionFilter = { status: 'active', tenantIds: { $in: assignedTenants } };
+      bookingFilter = { status: { $in: ['confirmed', 'completed'] }, tenantId: { $in: assignedTenants } };
+    }
 
     const [totalAttractions, totalBookings] = await Promise.all([
       Attraction.countDocuments(attractionFilter),
