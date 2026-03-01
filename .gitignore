@@ -27,6 +27,9 @@ Thumbs.db
 # Test coverage
 coverage/
 
+# Markdown files
+*.md
+
 # Temporary files
 tmp/
 temp/
