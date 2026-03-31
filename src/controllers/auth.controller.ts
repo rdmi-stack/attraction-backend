@@ -6,6 +6,7 @@ import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../types';
 import { env } from '../config/env';
 import { sendPasswordResetEmail } from '../services/email.service';
+import { createAdminNotifications } from '../services/notification.service';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -53,6 +54,15 @@ export const register = async (
     // Set cookies
     res.cookie('accessToken', accessToken, COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, { ...COOKIE_OPTIONS, path: '/api/auth/refresh' });
+
+    // Notify admins about new user
+    createAdminNotifications({
+      type: 'user',
+      title: 'New User Registered',
+      message: `${firstName} ${lastName} (${email}) created an account`,
+      link: '/admin/users',
+      data: { userId: user._id },
+    }).catch(() => {});
 
     sendSuccess(res, { user, accessToken, refreshToken }, 'Registration successful', 201);
   } catch (error) {

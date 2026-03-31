@@ -8,6 +8,7 @@ import { AuthRequest } from '../types';
 import { generateBookingReference } from '../utils/hash';
 import { generateTicketPdf } from '../services/pdf.service';
 import { createMockRefund } from '../services/stripe.service';
+import { createAdminNotifications } from '../services/notification.service';
 import { escapeRegex } from '../utils/helpers';
 import { Availability } from '../models/Availability';
 
@@ -174,6 +175,16 @@ export const createBooking = async (
         }
       }
     }
+
+    // Send notification to admins
+    createAdminNotifications({
+      type: 'booking',
+      title: 'New Booking Received',
+      message: `${guestDetails.firstName} ${guestDetails.lastName} booked "${attraction.title}" — ${attraction.currency} ${total.toFixed(2)}`,
+      link: `/admin/bookings`,
+      data: { bookingId: booking._id, reference: booking.reference },
+      tenantId: tenantId.toString(),
+    }).catch(() => {});
 
     sendSuccess(res, booking, 'Booking created successfully', 201);
   } catch (error) {

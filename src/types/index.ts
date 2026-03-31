@@ -282,6 +282,24 @@ export interface IReview extends Document {
   updatedAt: Date;
 }
 
+// Notification Types
+export type NotificationType = 'booking' | 'review' | 'user' | 'system' | 'alert';
+export type NotificationStatus = 'unread' | 'read' | 'archived';
+
+export interface INotification extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  tenantId?: Types.ObjectId;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  data?: Record<string, unknown>;
+  status: NotificationStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Extended Request with User and Tenant
 export interface AuthRequest extends Request {
   user?: IUser;

@@ -13,6 +13,7 @@ import uploadRoutes from './upload.routes';
 import contactRoutes from './contact.routes';
 import statsRoutes from './stats.routes';
 import promoRoutes from './promo.routes';
+import notificationsRoutes from './notifications.routes';
 
 const router = Router();
 
@@ -267,6 +268,7 @@ router.use('/payments', paymentsRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/contact', contactRoutes);
 router.use('/promo-codes', promoRoutes);
+router.use('/notifications', notificationsRoutes);
 
 // Admin routes aliases
 router.use('/admin/attractions', attractionsRoutes);

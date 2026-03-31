@@ -3,6 +3,7 @@ import { Review } from '../models/Review';
 import { sendSuccess, sendError, sendPaginated } from '../utils/response';
 import { AuthRequest } from '../types';
 import { sanitizeHtml, escapeRegex } from '../utils/helpers';
+import { createAdminNotifications } from '../services/notification.service';
 
 export const getRecentReviews = async (
   req: AuthRequest,
@@ -136,7 +137,18 @@ export const createReview = async (
       verified: !!req.user?._id,
     });
 
-    sendSuccess(res, await review.populate('attractionId', 'title slug'), 'Review created successfully', 201);
+    const populated = await review.populate('attractionId', 'title slug');
+
+    // Notify admins about new review
+    createAdminNotifications({
+      type: 'review',
+      title: rating <= 2 ? 'Low Rating Review' : 'New Review Posted',
+      message: `${rating}-star review on "${(populated.attractionId as { title: string })?.title || 'Unknown'}" by ${author}`,
+      link: '/admin/reviews',
+      data: { reviewId: review._id, rating },
+    }).catch(() => {});
+
+    sendSuccess(res, populated, 'Review created successfully', 201);
   } catch (error) {
     next(error);
   }
