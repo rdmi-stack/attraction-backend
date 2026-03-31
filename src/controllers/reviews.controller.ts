@@ -143,7 +143,7 @@ export const createReview = async (
     createAdminNotifications({
       type: 'review',
       title: rating <= 2 ? 'Low Rating Review' : 'New Review Posted',
-      message: `${rating}-star review on "${(populated.attractionId as { title: string })?.title || 'Unknown'}" by ${author}`,
+      message: `${rating}-star review on "${(populated.attractionId as unknown as { title: string })?.title || 'Unknown'}" by ${author}`,
       link: '/admin/reviews',
       data: { reviewId: review._id, rating },
     }).catch(() => {});
