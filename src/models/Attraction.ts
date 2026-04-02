@@ -35,7 +35,6 @@ const attractionSchema = new Schema<IAttraction>(
     },
     subcategory: {
       type: String,
-      required: true,
     },
     destination: {
       city: {
@@ -86,6 +85,12 @@ const attractionSchema = new Schema<IAttraction>(
       description: { type: String },
       price: { type: Number, required: true },
       originalPrice: { type: Number },
+    }],
+    addons: [{
+      id: { type: String, required: true },
+      name: { type: String, required: true },
+      description: { type: String },
+      price: { type: Number, required: true, min: 0 },
     }],
     highlights: [{
       type: String,

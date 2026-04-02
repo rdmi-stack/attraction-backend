@@ -125,7 +125,7 @@ export interface IAttraction extends Document {
   description: string;
   images: string[];
   category: string;
-  subcategory: string;
+  subcategory?: string;
   destination: {
     city: string;
     country: string;
@@ -146,6 +146,12 @@ export interface IAttraction extends Document {
     description: string;
     price: number;
     originalPrice?: number;
+  }>;
+  addons: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
   }>;
   highlights: string[];
   inclusions: string[];
