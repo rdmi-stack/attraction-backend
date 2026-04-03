@@ -113,16 +113,16 @@ export const createBookingSchema = z.object({
   attractionId: z.string().min(1, 'Attraction ID is required'),
   items: z.array(z.object({
     optionId: z.string(),
-    optionName: z.string(),
+    optionName: z.string().optional(),
     date: z.string(),
     time: z.string().optional(),
     quantities: z.object({
       adults: z.number().int().min(0),
       children: z.number().int().min(0),
-      infants: z.number().int().min(0),
+      infants: z.number().int().min(0).optional().default(0),
     }),
-    unitPrice: z.number().positive(),
-    totalPrice: z.number().positive(),
+    unitPrice: z.number().optional(),
+    totalPrice: z.number().optional(),
   })).min(1),
   guestDetails: z.object({
     firstName: z.string().min(1),
