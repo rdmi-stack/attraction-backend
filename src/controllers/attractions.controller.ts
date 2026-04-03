@@ -250,11 +250,10 @@ export const getAttractionAvailability = async (
     }
     endDate.setHours(23, 59, 59, 999);
 
-    // Query real availability from database
+    // Query real availability from database (include blocked dates)
     const availabilityRecords = await Availability.find({
       attractionId: id,
       date: { $gte: startDate, $lte: endDate },
-      isBlocked: false,
     }).sort({ date: 1 }).lean();
 
     // Build a map of existing availability
@@ -279,6 +278,13 @@ export const getAttractionAvailability = async (
       const record = availMap.get(dateStr);
 
       if (record) {
+        // Blocked date — return as unavailable
+        if (record.isBlocked) {
+          availability.push({ date: dateStr, available: false, blocked: true });
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
+
         // Use real data from database
         if (record.timeSlots && record.timeSlots.length > 0) {
           availability.push({
@@ -472,6 +478,92 @@ export const getFeaturedAttractions = async (
     res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=1200');
 
     sendSuccess(res, attractions);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---- Stop Sale ----
+
+export const getBlockedDates = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { from, to } = req.query;
+
+    const query: Record<string, unknown> = {
+      attractionId: new Types.ObjectId(id as string),
+      isBlocked: true,
+    };
+
+    if (from || to) {
+      query.date = {};
+      if (from) (query.date as Record<string, unknown>).$gte = new Date(from as string);
+      if (to) (query.date as Record<string, unknown>).$lte = new Date(to as string);
+    }
+
+    const blocked = await Availability.find(query).sort({ date: 1 }).lean();
+    sendSuccess(res, blocked);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const blockDates = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, reason } = req.body;
+
+    if (!startDate || !endDate) {
+      sendError(res, 'startDate and endDate are required', 400);
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let count = 0;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateOnly = new Date(d);
+      dateOnly.setHours(0, 0, 0, 0);
+
+      await Availability.findOneAndUpdate(
+        { attractionId: new Types.ObjectId(id as string), date: dateOnly },
+        { $set: { isBlocked: true, blockReason: reason || 'other' } },
+        { upsert: true }
+      );
+      count++;
+    }
+
+    sendSuccess(res, { blockedCount: count }, `${count} dates blocked`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unblockDate = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id, date } = req.params;
+    const dateObj = new Date(date);
+    dateObj.setHours(0, 0, 0, 0);
+
+    await Availability.findOneAndUpdate(
+      { attractionId: new Types.ObjectId(id as string), date: dateObj },
+      { $set: { isBlocked: false, blockReason: null } }
+    );
+
+    sendSuccess(res, {}, 'Date unblocked');
   } catch (error) {
     next(error);
   }

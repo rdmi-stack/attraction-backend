@@ -120,6 +120,31 @@ export const createBooking = async (
       }
     }
 
+    // Auto-apply best special offer (if better than promo code)
+    let specialOfferId = null;
+    const { SpecialOffer } = await import('../models/SpecialOffer');
+    const activeOffer = await SpecialOffer.findOne({
+      attractionId,
+      isActive: true,
+      validFrom: { $lte: new Date() },
+      validUntil: { $gte: new Date() },
+      $expr: { $lt: ['$usageCount', '$usageLimit'] },
+    }).sort({ discountValue: -1 });
+
+    if (activeOffer) {
+      let offerDiscount = 0;
+      if (activeOffer.discountType === 'percentage') {
+        offerDiscount = Math.round(subtotal * (activeOffer.discountValue / 100) * 100) / 100;
+      } else {
+        offerDiscount = activeOffer.discountValue;
+      }
+      if (offerDiscount > discount) {
+        discount = offerDiscount;
+        specialOfferId = activeOffer._id;
+        await SpecialOffer.findByIdAndUpdate(activeOffer._id, { $inc: { usageCount: 1 } });
+      }
+    }
+
     const total = subtotal + fees - discount;
 
     const tenantId = req.tenant?._id || attraction.tenantIds[0];
@@ -142,6 +167,7 @@ export const createBooking = async (
       total,
       currency: attraction.currency,
       promoCode,
+      specialOfferId,
       status: 'pending',
       paymentStatus: 'pending',
     });

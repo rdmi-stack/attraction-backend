@@ -92,6 +92,10 @@ const bookingSchema = new Schema<IBooking>(
     ticketPdfUrl: {
       type: String,
     },
+    specialOfferId: {
+      type: Schema.Types.ObjectId,
+      ref: 'SpecialOffer',
+    },
   },
   {
     timestamps: true,

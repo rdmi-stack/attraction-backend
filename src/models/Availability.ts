@@ -13,6 +13,7 @@ export interface IAvailability extends Document {
   allDayCapacity?: number;
   allDayBooked?: number;
   isBlocked: boolean;
+  blockReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +53,10 @@ const availabilitySchema = new Schema<IAvailability>(
     isBlocked: {
       type: Boolean,
       default: false,
+    },
+    blockReason: {
+      type: String,
+      enum: ['maintenance', 'overbooking', 'weather', 'holiday', 'other'],
     },
   },
   {

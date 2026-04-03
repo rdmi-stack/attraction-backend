@@ -9,6 +9,9 @@ import {
   createAttraction,
   updateAttraction,
   deleteAttraction,
+  getBlockedDates,
+  blockDates,
+  unblockDate,
 } from '../controllers/attractions.controller';
 import { authenticate, optionalAuth, requireAdmin, requireRole } from '../middleware/auth.middleware';
 import { optionalTenant } from '../middleware/tenant.middleware';
@@ -228,6 +231,11 @@ router.get(
   })),
   getAttractionAvailability
 );
+
+// Stop Sale — Admin routes
+router.get('/:id/blocked-dates', authenticate, requireAdmin, getBlockedDates);
+router.post('/:id/block-dates', authenticate, requireAdmin, blockDates);
+router.delete('/:id/block-dates/:date', authenticate, requireAdmin, unblockDate);
 
 // Submit a review
 router.post(
