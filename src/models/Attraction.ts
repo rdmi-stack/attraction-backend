@@ -102,13 +102,13 @@ const attractionSchema = new Schema<IAttraction>(
       type: String,
     }],
     meetingPoint: {
-      address: { type: String, required: true },
-      instructions: { type: String, required: true },
-      mapUrl: { type: String },
+      address: { type: String, default: '' },
+      instructions: { type: String, default: '' },
+      mapUrl: { type: String, default: '' },
     },
     cancellationPolicy: {
       type: String,
-      required: true,
+      default: 'Free cancellation up to 24 hours before',
     },
     instantConfirmation: {
       type: Boolean,
