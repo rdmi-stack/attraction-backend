@@ -153,6 +153,18 @@ export interface IAttraction extends Document {
     description?: string;
     price: number;
   }>;
+  itinerary: Array<{
+    time: string;
+    duration: string;
+    title: string;
+    description: string;
+  }>;
+  whatToBring: string[];
+  accessibility: string[];
+  gettingThere: Array<{
+    mode: string;
+    description: string;
+  }>;
   highlights: string[];
   inclusions: string[];
   exclusions: string[];

@@ -94,6 +94,18 @@ export const createAttractionSchema = z.object({
     metaDescription: z.string().optional().default(''),
     keywords: z.array(z.string()).optional(),
   }).optional(),
+  itinerary: z.array(z.object({
+    time: z.string(),
+    duration: z.string(),
+    title: z.string(),
+    description: z.string().optional().default(''),
+  })).optional().default([]),
+  whatToBring: z.array(z.string()).optional().default([]),
+  accessibility: z.array(z.string()).optional().default([]),
+  gettingThere: z.array(z.object({
+    mode: z.string(),
+    description: z.string(),
+  })).optional().default([]),
   tenantIds: z.array(z.string()).optional().default([]),
   addons: z.array(z.object({
     id: z.string(),
