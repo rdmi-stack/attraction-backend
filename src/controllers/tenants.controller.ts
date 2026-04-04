@@ -100,7 +100,7 @@ export const getPublicTenants = async (
 ): Promise<void> => {
   try {
     const tenants = await Tenant.find({ status: { $in: ['active', 'coming_soon'] } })
-      .select('slug name domain logo tagline description theme designMode defaultCurrency defaultLanguage supportedLanguages status seoSettings contactInfo')
+      .select('slug name domain customDomain logo tagline description theme fonts designMode defaultCurrency defaultLanguage supportedLanguages status seoSettings contactInfo socialLinks')
       .sort({ name: 1 })
       .lean();
 
