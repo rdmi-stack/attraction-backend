@@ -9,11 +9,23 @@ const allowedOrigins = [
   'http://localhost:3001',
 ];
 
-// Patterns for dynamic subdomain matching
+// Patterns for dynamic subdomain matching + custom tenant domains
 const allowedPatterns = [
   /\.netlify\.app$/,
   /\.foxesnetwork\.com$/,
   /\.up\.railway\.app$/,
+  // Custom tenant domains (Fouad's client brands)
+  /^makadihorseclub\.com$/,
+  /^cairotourfromhurghada\.com$/,
+  /^cairotourspackages\.com$/,
+  /^parasailinghurghada\.com$/,
+  /^luxortourfromhurghada\.com$/,
+  /^horseridinghurghada\.com$/,
+  /^hurghadasnorkeling\.com$/,
+  /^pyramidsexcursions\.com$/,
+  /^hurghadaprivatesafari\.com$/,
+  /^makadibaysafari\.com$/,
+  /^safariredsea\.com$/,
 ];
 
 export const corsOptions: CorsOptions = {
