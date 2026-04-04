@@ -110,7 +110,7 @@ const bookingSchema = new Schema<IBooking>(
 );
 
 // Generate booking reference before saving
-bookingSchema.pre('save', function (next) {
+bookingSchema.pre('save', function (this: IBooking, next) {
   if (!this.reference) {
     this.reference = generateBookingReference();
   }

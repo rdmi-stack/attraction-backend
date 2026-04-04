@@ -237,6 +237,7 @@ export interface IBooking extends Document {
   status: BookingStatus;
   stripePaymentIntentId?: string;
   ticketPdfUrl?: string;
+  specialOfferId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

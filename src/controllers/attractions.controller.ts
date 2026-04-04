@@ -280,7 +280,7 @@ export const getAttractionAvailability = async (
       if (record) {
         // Blocked date — return as unavailable
         if (record.isBlocked) {
-          availability.push({ date: dateStr, available: false, blocked: true });
+          availability.push({ date: dateStr, available: false, blocked: true } as { date: string; available: boolean; blocked?: boolean });
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }
