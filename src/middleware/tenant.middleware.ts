@@ -3,6 +3,8 @@ import { Tenant } from '../models/Tenant';
 import { AuthRequest } from '../types';
 import { sendError } from '../utils/response';
 
+const PUBLIC_TENANT_STATUSES = ['active', 'coming_soon', 'pending'] as const;
+
 export const resolveTenant = async (
   req: AuthRequest,
   res: Response,
@@ -46,7 +48,7 @@ export const resolveTenant = async (
         { domain: tenantIdentifier },
         { customDomain: tenantIdentifier },
       ],
-      status: 'active',
+      status: { $in: PUBLIC_TENANT_STATUSES },
     });
 
     if (!tenant) {
@@ -93,8 +95,9 @@ export const optionalTenant = async (
           { _id: tenantIdentifier },
           { slug: tenantIdentifier },
           { domain: tenantIdentifier },
+          { customDomain: tenantIdentifier },
         ],
-        status: 'active',
+        status: { $in: PUBLIC_TENANT_STATUSES },
       });
 
       if (tenant) {
