@@ -10,6 +10,7 @@
     "seed": "ts-node src/scripts/seed.ts",
     "seed:promo": "ts-node src/scripts/seed-promo-codes.ts",
     "seed:availability": "ts-node src/scripts/seed-availability.ts",
+    "user:set-password": "ts-node src/scripts/set-user-password.ts",
     "lint": "tsc --noEmit",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
