@@ -227,6 +227,11 @@ export interface IBooking extends Document {
     };
     unitPrice: number;
     totalPrice: number;
+    addons?: Array<{
+      id: string;
+      name: string;
+      price: number;
+    }>;
   }>;
   guestDetails: {
     firstName: string;

@@ -135,6 +135,11 @@ export const createBookingSchema = z.object({
     }),
     unitPrice: z.number().optional(),
     totalPrice: z.number().optional(),
+    addons: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.number(),
+    })).optional().default([]),
   })).min(1),
   guestDetails: z.object({
     firstName: z.string().min(1),
@@ -188,6 +193,7 @@ export const createTenantSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   domain: z.string().min(1, 'Domain is required'),
   logo: z.string().url(),
+  heroImages: z.array(z.string().url()).optional(),
   theme: z.object({
     primaryColor: z.string(),
     secondaryColor: z.string(),

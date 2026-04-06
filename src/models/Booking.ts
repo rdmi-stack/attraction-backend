@@ -38,6 +38,11 @@ const bookingSchema = new Schema<IBooking>(
       },
       unitPrice: { type: Number, required: true },
       totalPrice: { type: Number, required: true },
+      addons: [{
+        id: { type: String },
+        name: { type: String },
+        price: { type: Number },
+      }],
     }],
     guestDetails: {
       firstName: { type: String, required: true },
@@ -73,6 +78,8 @@ const bookingSchema = new Schema<IBooking>(
     },
     paymentMethod: {
       type: String,
+      enum: ['card', 'pay-later', 'cash'],
+      default: 'pay-later',
     },
     paymentStatus: {
       type: String,

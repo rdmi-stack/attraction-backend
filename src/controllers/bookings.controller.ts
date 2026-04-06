@@ -43,7 +43,7 @@ export const createBooking = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { attractionId, items, guestDetails, promoCode } = req.body;
+    const { attractionId, items, guestDetails, promoCode, paymentMethod } = req.body;
 
     // Verify attraction exists
     const attraction = await Attraction.findById(attractionId);
@@ -63,6 +63,7 @@ export const createBooking = async (
       date: string;
       time?: string;
       quantities: { adults: number; children: number; infants: number };
+      addons?: Array<{ id: string; name: string; price: number }>;
     }) => {
       const option = attraction.pricingOptions.find((o) => o.id === item.optionId);
       if (!option) {
@@ -77,6 +78,18 @@ export const createBooking = async (
       const unitPrice = option.price;
       const totalPrice = Math.round(unitPrice * payableGuests * 100) / 100;
 
+      // Validate add-ons against attraction's add-on catalog
+      const validAddons = (item.addons || []).filter((addon) =>
+        attraction.addons?.some((a) => a.id === addon.id)
+      ).map((addon) => {
+        const catalogAddon = attraction.addons?.find((a) => a.id === addon.id);
+        return {
+          id: addon.id,
+          name: catalogAddon?.name || addon.name,
+          price: catalogAddon?.price || addon.price,
+        };
+      });
+
       return {
         optionId: option.id,
         optionName: option.name,
@@ -85,11 +98,15 @@ export const createBooking = async (
         quantities: item.quantities,
         unitPrice,
         totalPrice,
+        ...(validAddons.length > 0 ? { addons: validAddons } : {}),
       };
     });
 
     const subtotal = normalizedItems.reduce(
-      (acc: number, item: { totalPrice: number }) => acc + item.totalPrice,
+      (acc: number, item: { totalPrice: number; addons?: Array<{ price: number }> }) => {
+        const addonsTotal = (item.addons || []).reduce((s, a) => s + a.price, 0);
+        return acc + item.totalPrice + addonsTotal;
+      },
       0
     );
 
@@ -168,8 +185,9 @@ export const createBooking = async (
       currency: attraction.currency,
       promoCode,
       specialOfferId,
-      status: 'pending',
-      paymentStatus: 'pending',
+      paymentMethod: paymentMethod || 'pay-later',
+      status: paymentMethod === 'pay-later' ? 'confirmed' : 'pending',
+      paymentStatus: paymentMethod === 'pay-later' ? 'pending' : 'pending',
     });
 
     // Update user stats if logged in
