@@ -143,7 +143,8 @@ export const generateTicketPdf = async (data: TicketData): Promise<Buffer> => {
       const brandName = data.tenantName || 'Attractions Network';
 
       // Generate QR code
-      const qrDataUrl = await QRCode.toDataURL(data.reference, {
+      const qrUrl = `https://foxes-network.netlify.app/checkout/confirmation?ref=${data.reference}`;
+      const qrDataUrl = await QRCode.toDataURL(qrUrl, {
         width: 300,
         margin: 1,
         color: { dark: '#1e293b', light: '#ffffff' },
