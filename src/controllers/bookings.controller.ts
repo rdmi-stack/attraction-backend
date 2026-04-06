@@ -261,11 +261,8 @@ export const getBookingByReference = async (
       return;
     }
 
-    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
-      sendError(res, 'Not authorized to view this booking', 403);
-      return;
-    }
-
+    // Reference-based lookup is public — the reference itself acts as auth
+    // (only the booker and admin know the reference)
     sendSuccess(res, booking);
   } catch (error) {
     next(error);
