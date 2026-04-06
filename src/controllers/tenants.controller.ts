@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Tenant } from '../models/Tenant';
 import { Attraction } from '../models/Attraction';
 import { Booking } from '../models/Booking';
@@ -100,7 +101,7 @@ export const getPublicTenants = async (
 ): Promise<void> => {
   try {
     const tenants = await Tenant.find({ status: { $in: ['active', 'coming_soon'] } })
-      .select('slug name domain customDomain logo tagline description theme fonts designMode defaultCurrency defaultLanguage supportedLanguages status seoSettings contactInfo socialLinks')
+      .select('slug name domain customDomain logo logoDark favicon heroImages tagline description theme fonts designMode defaultCurrency defaultLanguage supportedLanguages status seoSettings contactInfo socialLinks')
       .sort({ name: 1 })
       .lean();
 
@@ -245,6 +246,7 @@ export const updateTenantSettings = async (
       'logo',
       'logoDark',
       'favicon',
+      'heroImages',
       'defaultCurrency',
       'defaultLanguage',
       'supportedLanguages',
@@ -325,7 +327,7 @@ export const getTenantStats = async (
       Booking.aggregate([
         {
           $match: {
-            tenantId: id,
+            tenantId: new Types.ObjectId(id as string),
             paymentStatus: 'succeeded',
             createdAt: { $gte: startDate },
           },
@@ -335,7 +337,7 @@ export const getTenantStats = async (
       Booking.aggregate([
         {
           $match: {
-            tenantId: id,
+            tenantId: new Types.ObjectId(id as string),
             createdAt: { $gte: startDate },
           },
         },
