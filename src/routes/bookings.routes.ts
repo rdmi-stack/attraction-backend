@@ -84,7 +84,7 @@ router.post(
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.get('/reference/:reference', authenticate, getBookingByReference);
+router.get('/reference/:reference', optionalAuth, getBookingByReference);
 
 /**
  * @swagger
