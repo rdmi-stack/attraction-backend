@@ -34,6 +34,7 @@ interface TicketData {
   instantConfirmation?: boolean;
   tenantName?: string;
   brandColor?: string;
+  logoUrl?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,12 +159,29 @@ export const generateTicketPdf = async (data: TicketData): Promise<Buffer> => {
       // White header background
       doc.rect(0, 0, doc.page.width, 90).fill('#ffffff');
 
-      // Brand name — left
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(22)
-        .fillColor('#0f172a')
-        .text(brandName, 50, 30, { width: 320 });
+      // Try to fetch and embed tenant logo
+      let logoEmbedded = false;
+      if (data.logoUrl) {
+        try {
+          const logoResponse = await fetch(data.logoUrl);
+          if (logoResponse.ok) {
+            const logoBuffer = Buffer.from(await logoResponse.arrayBuffer());
+            doc.image(logoBuffer, 50, 20, { height: 50, fit: [200, 50] });
+            logoEmbedded = true;
+          }
+        } catch {
+          // Logo fetch failed — fall back to text
+        }
+      }
+
+      // Brand name — left (show as text if logo failed or not provided)
+      if (!logoEmbedded) {
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(22)
+          .fillColor('#0f172a')
+          .text(brandName, 50, 30, { width: 320 });
+      }
 
       // Tagline
       doc
@@ -475,23 +493,12 @@ export const generateTicketPdf = async (data: TicketData): Promise<Buffer> => {
 
       doc
         .font('Helvetica')
-        .fontSize(7)
-        .fillColor('#94a3b8')
-        .text(
-          'Powered by Attractions Network  |  foxestechnology.com',
-          50,
-          footerY + 26,
-          { width: 495, align: 'center' }
-        );
-
-      doc
-        .font('Helvetica')
         .fontSize(6)
         .fillColor('#cbd5e1')
         .text(
           `Generated ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC`,
           50,
-          footerY + 40,
+          footerY + 26,
           { width: 495, align: 'center' }
         );
 

@@ -357,7 +357,7 @@ export const getBookingTicket = async (
 
     const booking = await Booking.findById(id)
       .populate('attractionId')
-      .populate('tenantId', 'name theme');
+      .populate('tenantId', 'name theme logo');
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
@@ -420,6 +420,7 @@ export const getBookingTicket = async (
         instantConfirmation: attraction?.instantConfirmation,
         tenantName: tenant?.name,
         brandColor: tenant?.theme?.primaryColor,
+        logoUrl: tenant?.logo,
       };
 
       const pdfBuffer = await generateTicketPdf(ticketData);
