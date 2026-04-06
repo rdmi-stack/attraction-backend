@@ -158,6 +158,11 @@ export interface IAttraction extends Document {
     description?: string;
     price: number;
   }>;
+  entryWindows: Array<{
+    label: string;
+    startTime: string;
+    endTime: string;
+  }>;
   itinerary: Array<{
     time: string;
     duration: string;

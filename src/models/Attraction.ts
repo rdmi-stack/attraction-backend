@@ -92,6 +92,11 @@ const attractionSchema = new Schema<IAttraction>(
       description: { type: String },
       price: { type: Number, required: true, min: 0 },
     }],
+    entryWindows: [{
+      label: { type: String, required: true },
+      startTime: { type: String, required: true },
+      endTime: { type: String, required: true },
+    }],
     itinerary: [{
       time: { type: String },
       duration: { type: String },
