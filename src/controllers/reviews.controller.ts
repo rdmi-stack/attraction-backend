@@ -266,3 +266,43 @@ export const updateReviewStatus = async (
     next(error);
   }
 };
+
+// Admin: Reply to a review
+export const replyToReview = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      sendError(res, 'Reply content is required', 400);
+      return;
+    }
+
+    const author = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || 'Admin';
+
+    const review = await Review.findByIdAndUpdate(
+      id,
+      {
+        adminReply: {
+          content: sanitizeHtml(content),
+          author,
+          repliedAt: new Date(),
+        },
+      },
+      { new: true }
+    ).populate('attractionId', 'title slug');
+
+    if (!review) {
+      sendError(res, 'Review not found', 404);
+      return;
+    }
+
+    sendSuccess(res, review, 'Reply posted successfully');
+  } catch (error) {
+    next(error);
+  }
+};

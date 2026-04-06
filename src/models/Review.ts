@@ -49,6 +49,11 @@ const reviewSchema = new Schema<IReview>(
     images: [{
       type: String,
     }],
+    adminReply: {
+      content: { type: String },
+      author: { type: String },
+      repliedAt: { type: Date },
+    },
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

@@ -46,6 +46,7 @@ export interface ITenant extends Document {
   logo: string;
   logoDark?: string;
   favicon?: string;
+  heroImages?: string[];
   tagline?: string;
   description?: string;
   theme: {
@@ -98,6 +99,10 @@ export interface ITenant extends Document {
       maxSuggestions: number;
     };
   };
+  navigation?: {
+    label: string;
+    href: string;
+  }[];
   seoSettings?: {
     metaTitle: string;
     metaDescription: string;
@@ -296,6 +301,11 @@ export interface IReview extends Document {
   verified: boolean;
   country: string;
   images?: string[];
+  adminReply?: {
+    content: string;
+    author: string;
+    repliedAt: Date;
+  };
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
   updatedAt: Date;

@@ -244,7 +244,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  requireSuperAdmin,
+  requireAdmin,
   validate(createTenantSchema),
   createTenant
 );

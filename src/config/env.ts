@@ -21,7 +21,7 @@ export const env = {
   
   // JWT
   jwtSecret,
-  jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
+  jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '4h',
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   
   // Stripe
@@ -37,6 +37,9 @@ export const env = {
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+
+  // OpenAI
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
   
   // Frontend URL
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',

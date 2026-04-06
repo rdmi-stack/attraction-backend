@@ -39,6 +39,9 @@ const tenantSchema = new Schema<ITenant>(
     favicon: {
       type: String,
     },
+    heroImages: [{
+      type: String,
+    }],
     tagline: {
       type: String,
     },
@@ -127,6 +130,10 @@ const tenantSchema = new Schema<ITenant>(
         maxSuggestions: { type: Number, default: 6 },
       },
     },
+    navigation: [{
+      label: { type: String, required: true },
+      href: { type: String, required: true },
+    }],
     seoSettings: {
       metaTitle: String,
       metaDescription: String,

@@ -7,6 +7,7 @@ import {
   getReviewById,
   getAdminReviews,
   updateReviewStatus,
+  replyToReview,
 } from '../controllers/reviews.controller';
 import { optionalAuth, authenticate, requireAdmin } from '../middleware/auth.middleware';
 
@@ -128,6 +129,7 @@ router.post('/', optionalAuth, createReview);
 // Admin routes (must be before /:reviewId to avoid param conflict)
 router.get('/admin', authenticate, requireAdmin, getAdminReviews);
 router.patch('/:id/status', authenticate, requireAdmin, updateReviewStatus);
+router.post('/:id/reply', authenticate, requireAdmin, replyToReview);
 
 router.get('/attraction/:attractionId', optionalAuth, getReviewsByAttractionId);
 
