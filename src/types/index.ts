@@ -58,7 +58,7 @@ export interface ITenant extends Document {
     heading: string;
     body: string;
   };
-  designMode?: 'default' | 'luxury' | 'minimal' | 'nautical' | 'equestrian' | 'marine' | 'desert' | 'safari' | 'travel' | 'stable';
+  designMode?: 'default' | 'luxury' | 'minimal' | 'nautical' | 'equestrian' | 'marine' | 'desert' | 'safari' | 'travel' | 'stable' | 'sunmarine';
   defaultCurrency: string;
   defaultLanguage: string;
   supportedLanguages: string[];

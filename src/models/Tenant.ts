@@ -74,7 +74,7 @@ const tenantSchema = new Schema<ITenant>(
     },
     designMode: {
       type: String,
-      enum: ['default', 'luxury', 'minimal', 'nautical', 'equestrian', 'marine', 'desert', 'safari', 'travel', 'stable'],
+      enum: ['default', 'luxury', 'minimal', 'nautical', 'equestrian', 'marine', 'desert', 'safari', 'travel', 'stable', 'sunmarine'],
       default: 'default',
     },
     defaultCurrency: {
