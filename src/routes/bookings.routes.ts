@@ -160,7 +160,7 @@ router.patch('/:id/cancel', authenticate, cancelBooking);
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.get('/:id/ticket', authenticate, getBookingTicket);
+router.get('/:id/ticket', optionalAuth, getBookingTicket);
 
 /**
  * @swagger

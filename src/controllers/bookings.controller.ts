@@ -355,14 +355,18 @@ export const getBookingTicket = async (
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id).populate('attractionId');
+    const booking = await Booking.findById(id)
+      .populate('attractionId')
+      .populate('tenantId', 'name theme');
 
     if (!booking) {
       sendError(res, 'Booking not found', 404);
       return;
     }
 
-    if (!canAccessBooking(req, booking.userId, booking.tenantId)) {
+    // Allow public access when user is not authenticated (optionalAuth)
+    // but still gate for authenticated users who don't own the booking
+    if (req.user && !canAccessBooking(req, booking.userId, booking.tenantId)) {
       sendError(res, 'Not authorized to access this ticket', 403);
       return;
     }
@@ -376,20 +380,46 @@ export const getBookingTicket = async (
     // Generate and return PDF ticket
     try {
       const attraction = booking.attractionId as any;
+      const tenant = booking.tenantId as any;
+      const firstItem = booking.items[0] as any;
+
       const ticketData = {
         reference: booking.reference,
         attractionTitle: attraction?.title || 'Experience',
-        date: booking.items[0]?.date || new Date().toISOString().split('T')[0],
-        time: booking.items[0]?.time,
+        optionName: firstItem?.optionName,
+        date: firstItem?.date || new Date().toISOString().split('T')[0],
+        time: firstItem?.time,
+        duration: attraction?.duration,
         guestName: `${booking.guestDetails.firstName} ${booking.guestDetails.lastName}`,
-        email: booking.guestDetails.email,
+        guestEmail: booking.guestDetails.email,
+        guestPhone: booking.guestDetails.phone,
+        guestCountry: booking.guestDetails.country,
         items: booking.items.map((item: any) => ({
-          optionName: item.optionName,
-          quantities: item.quantities,
+          name: item.optionName,
+          adults: item.quantities?.adults || 0,
+          children: item.quantities?.children || 0,
+          infants: item.quantities?.infants || 0,
         })),
+        addons: firstItem?.addons?.length
+          ? firstItem.addons.map((a: any) => ({ name: a.name, price: a.price }))
+          : undefined,
+        subtotal: booking.subtotal,
+        fees: booking.fees,
+        discount: booking.discount,
         total: booking.total,
         currency: booking.currency,
-        meetingPoint: attraction?.meetingPoint,
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        meetingPoint: attraction?.meetingPoint?.address
+          ? {
+              address: attraction.meetingPoint.address,
+              instructions: attraction.meetingPoint.instructions || undefined,
+            }
+          : undefined,
+        cancellationPolicy: attraction?.cancellationPolicy,
+        instantConfirmation: attraction?.instantConfirmation,
+        tenantName: tenant?.name,
+        brandColor: tenant?.theme?.primaryColor,
       };
 
       const pdfBuffer = await generateTicketPdf(ticketData);

@@ -118,20 +118,36 @@ export const confirmPayment = async (
     // Generate ticket PDF and send confirmation email
     try {
       const attraction = booking.attractionId as any;
+      const firstItem = booking.items[0] as any;
       const ticketData = {
         reference: booking.reference,
         attractionTitle: attraction?.title || 'Experience',
-        date: booking.items[0]?.date || new Date().toISOString().split('T')[0],
-        time: booking.items[0]?.time,
+        optionName: firstItem?.optionName,
+        date: firstItem?.date || new Date().toISOString().split('T')[0],
+        time: firstItem?.time,
+        duration: attraction?.duration,
         guestName: `${booking.guestDetails.firstName} ${booking.guestDetails.lastName}`,
-        email: booking.guestDetails.email,
+        guestEmail: booking.guestDetails.email,
+        guestPhone: booking.guestDetails.phone,
+        guestCountry: booking.guestDetails.country,
         items: booking.items.map((item: any) => ({
-          optionName: item.optionName,
-          quantities: item.quantities,
+          name: item.optionName,
+          adults: item.quantities?.adults || 0,
+          children: item.quantities?.children || 0,
+          infants: item.quantities?.infants || 0,
         })),
+        addons: firstItem?.addons?.length
+          ? firstItem.addons.map((a: any) => ({ name: a.name, price: a.price }))
+          : undefined,
+        subtotal: booking.subtotal,
+        fees: booking.fees,
+        discount: booking.discount,
         total: booking.total,
         currency: booking.currency,
-        meetingPoint: attraction?.meetingPoint,
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        cancellationPolicy: attraction?.cancellationPolicy,
+        instantConfirmation: attraction?.instantConfirmation,
       };
 
       const pdfBuffer = await generateTicketPdf(ticketData);
