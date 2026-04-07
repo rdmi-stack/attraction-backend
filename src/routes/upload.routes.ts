@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
-import { uploadSingleImage, uploadMultipleImages } from '../controllers/upload.controller';
+import { uploadSingleImage, uploadMultipleImages, generateAiImage } from '../controllers/upload.controller';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -44,6 +44,13 @@ router.post(
   requireRole('super-admin', 'brand-admin', 'manager', 'editor'),
   upload.array('images', 10),
   uploadMultipleImages
+);
+
+router.post(
+  '/generate',
+  authenticate,
+  requireRole('super-admin', 'brand-admin', 'manager', 'editor'),
+  generateAiImage
 );
 
 export default router;
