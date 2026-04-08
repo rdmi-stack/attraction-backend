@@ -26,6 +26,17 @@ const allowedPatterns = [
   /^hurghadaprivatesafari\.com$/,
   /^makadibaysafari\.com$/,
   /^safariredsea\.com$/,
+  /^rittaltravelegypt\.com$/,
+  /^splashspeedboathurghada\.com$/,
+  /^egyptsunmarine\.com$/,
+  // German EEO network
+  /^aegyptenausfluege\.de$/,
+  /^kairoausfluege\.de$/,
+  /^hurghadaausfluege\.de$/,
+  /^makadibayausfluege\.de$/,
+  /^sharmausfluege\.de$/,
+  /^elgounaausfluege\.de$/,
+  /^luxorausfluege\.de$/,
 ];
 
 export const corsOptions: CorsOptions = {
