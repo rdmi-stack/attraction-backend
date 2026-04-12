@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Tenant } from '../models/Tenant';
 import { AuthRequest } from '../types';
 import { sendError } from '../utils/response';
@@ -41,9 +42,10 @@ export const resolveTenant = async (
     }
 
     // Find tenant by ID, slug, or domain
+    const isObjectId = Types.ObjectId.isValid(tenantIdentifier);
     const tenant = await Tenant.findOne({
       $or: [
-        { _id: tenantIdentifier },
+        ...(isObjectId ? [{ _id: tenantIdentifier }] : []),
         { slug: tenantIdentifier },
         { domain: tenantIdentifier },
         { customDomain: tenantIdentifier },
@@ -90,9 +92,10 @@ export const optionalTenant = async (
     }
 
     if (tenantIdentifier) {
+      const isObjectId = Types.ObjectId.isValid(tenantIdentifier);
       const tenant = await Tenant.findOne({
         $or: [
-          { _id: tenantIdentifier },
+          ...(isObjectId ? [{ _id: tenantIdentifier }] : []),
           { slug: tenantIdentifier },
           { domain: tenantIdentifier },
           { customDomain: tenantIdentifier },
