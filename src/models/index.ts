@@ -5,3 +5,4 @@ export { Booking } from './Booking';
 export { Category } from './Category';
 export { Destination } from './Destination';
 export { Review } from './Review';
+export { EventRsvp } from './EventRsvp';

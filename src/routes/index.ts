@@ -15,6 +15,7 @@ import statsRoutes from './stats.routes';
 import promoRoutes from './promo.routes';
 import notificationsRoutes from './notifications.routes';
 import specialOffersRoutes from './specialOffers.routes';
+import rsvpsRoutes from './rsvps.routes';
 
 const router = Router();
 
@@ -271,6 +272,7 @@ router.use('/contact', contactRoutes);
 router.use('/promo-codes', promoRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/special-offers', specialOffersRoutes);
+router.use('/rsvps', rsvpsRoutes);
 
 // Admin routes aliases
 router.use('/admin/attractions', attractionsRoutes);
