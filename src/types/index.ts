@@ -78,6 +78,9 @@ export interface ITenant extends Document {
     youtube?: string;
     tiktok?: string;
   };
+  pricingSettings?: {
+    enableResidentPricing?: boolean;
+  };
   aiSettings: {
     bookingWidget: {
       enabled: boolean;
@@ -151,6 +154,7 @@ export interface IAttraction extends Document {
     description: string;
     price: number;
     originalPrice?: number;
+    residentPrice?: number;
   }>;
   addons: Array<{
     id: string;
@@ -227,6 +231,7 @@ export interface IBooking extends Document {
     };
     unitPrice: number;
     totalPrice: number;
+    category?: 'foreigner' | 'resident';
     addons?: Array<{
       id: string;
       name: string;

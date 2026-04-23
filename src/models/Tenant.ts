@@ -109,6 +109,11 @@ const tenantSchema = new Schema<ITenant>(
       youtube: String,
       tiktok: String,
     },
+    pricingSettings: {
+      // When true, tours on this tenant can expose a lower "resident" price
+      // and the booking widget will ask the visitor to pick Foreigner vs Resident.
+      enableResidentPricing: { type: Boolean, default: false },
+    },
     aiSettings: {
       bookingWidget: {
         enabled: { type: Boolean, default: true },

@@ -1847,6 +1847,11 @@ const tenants = [
     name: 'Makadi Horse Club',
     domain: 'makadi-horse-club.foxesnetwork.com',
     logo: '/logos/makadi-horse-club.png',
+    heroImages: [
+      'https://res.cloudinary.com/dm3sxllch/image/upload/v1775421316/attractions-network/tenant-heroes/makadi-horse-club/jz4xqdqtd2gal3pfm9ly.jpg',
+      'https://res.cloudinary.com/dm3sxllch/image/upload/v1775421383/attractions-network/tenant-heroes/makadi-horse-club/b5wyzs5mdmemct64pvad.jpg',
+      'https://res.cloudinary.com/dm3sxllch/image/upload/v1775421386/attractions-network/tenant-heroes/makadi-horse-club/biikbq7mzbj2tjmqaghx.jpg',
+    ],
     tagline: 'Premium Horse Riding in Makadi Bay',
     description: 'Experience the beauty of the Egyptian desert on horseback. Makadi Horse Club offers professional horse riding experiences for all skill levels in the stunning Makadi Bay area.',
     theme: { primaryColor: '#8B4513', secondaryColor: '#D2691E', accentColor: '#F4A460' },

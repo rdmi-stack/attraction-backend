@@ -251,6 +251,7 @@ export const updateTenantSettings = async (
       'defaultLanguage',
       'supportedLanguages',
       'timezone',
+      'pricingSettings',
     ];
 
     const updates: Record<string, unknown> = {};

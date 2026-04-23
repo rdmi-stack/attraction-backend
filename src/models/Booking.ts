@@ -38,6 +38,8 @@ const bookingSchema = new Schema<IBooking>(
       },
       unitPrice: { type: Number, required: true },
       totalPrice: { type: Number, required: true },
+      // Which pricing tier was applied — only set when tenant has resident pricing enabled
+      category: { type: String, enum: ['foreigner', 'resident'] },
       addons: [{
         id: { type: String },
         name: { type: String },

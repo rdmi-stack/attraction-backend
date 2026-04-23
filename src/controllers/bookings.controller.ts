@@ -57,11 +57,16 @@ export const createBooking = async (
       return;
     }
 
+    // Whether THIS booking's tenant has opted into dual (Foreigner/Resident) pricing.
+    // The Resident rate is honoured only when the tenant flag is on AND the option has a residentPrice set.
+    const residentPricingEnabled = req.tenant?.pricingSettings?.enableResidentPricing === true;
+
     // Recalculate line items on the server to prevent client-side price tampering.
     const normalizedItems = items.map((item: {
       optionId: string;
       date: string;
       time?: string;
+      category?: 'foreigner' | 'resident';
       quantities: { adults: number; children: number; infants: number };
       addons?: Array<{ id: string; name: string; price: number }>;
     }) => {
@@ -75,7 +80,20 @@ export const createBooking = async (
         throw new Error('INVALID_QUANTITY');
       }
 
-      const unitPrice = option.price;
+      // Pick the right tier. Falls back to foreigner price if resident is requested
+      // but the flag is off or the option doesn't carry a residentPrice — never throws.
+      const useResident =
+        residentPricingEnabled &&
+        item.category === 'resident' &&
+        typeof option.residentPrice === 'number' &&
+        option.residentPrice > 0;
+      const unitPrice = useResident ? (option.residentPrice as number) : option.price;
+      const appliedCategory: 'foreigner' | 'resident' | undefined = residentPricingEnabled
+        ? useResident
+          ? 'resident'
+          : 'foreigner'
+        : undefined;
+
       const totalPrice = Math.round(unitPrice * payableGuests * 100) / 100;
 
       // Validate add-ons against attraction's add-on catalog
@@ -98,6 +116,7 @@ export const createBooking = async (
         quantities: item.quantities,
         unitPrice,
         totalPrice,
+        ...(appliedCategory ? { category: appliedCategory } : {}),
         ...(validAddons.length > 0 ? { addons: validAddons } : {}),
       };
     });

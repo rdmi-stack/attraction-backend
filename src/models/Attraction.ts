@@ -85,6 +85,9 @@ const attractionSchema = new Schema<IAttraction>(
       description: { type: String },
       price: { type: Number, required: true },
       originalPrice: { type: Number },
+      // Optional lower price for residents (Egypt locals). Enforced only when
+      // the tenant has pricingSettings.enableResidentPricing = true.
+      residentPrice: { type: Number, min: 0 },
     }],
     addons: [{
       id: { type: String, required: true },

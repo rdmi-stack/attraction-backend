@@ -336,6 +336,19 @@ export const getAttractionAvailability = async (
 };
 
 // Admin endpoints
+// Validates that every pricing option's residentPrice, when present, does not exceed its price.
+// Resident pricing is meant to be a discount, not a surcharge.
+const validatePricingOptions = (pricingOptions: unknown): string | null => {
+  if (!Array.isArray(pricingOptions)) return null;
+  for (const option of pricingOptions) {
+    const opt = option as { id?: string; name?: string; price?: number; residentPrice?: number };
+    if (typeof opt.residentPrice === 'number' && typeof opt.price === 'number' && opt.residentPrice > opt.price) {
+      return `Resident price (${opt.residentPrice}) cannot exceed regular price (${opt.price}) for option "${opt.name || opt.id}"`;
+    }
+  }
+  return null;
+};
+
 export const createAttraction = async (
   req: AuthRequest,
   res: Response,
@@ -350,6 +363,12 @@ export const createAttraction = async (
         sendError(res, 'Cannot assign attraction to a tenant you do not manage', 403);
         return;
       }
+    }
+
+    const pricingError = validatePricingOptions(req.body.pricingOptions);
+    if (pricingError) {
+      sendError(res, pricingError, 400);
+      return;
     }
 
     const attractionData = {
@@ -386,6 +405,12 @@ export const updateAttraction = async (
         sendError(res, 'Access denied to this attraction', 403);
         return;
       }
+    }
+
+    const pricingError = validatePricingOptions(req.body.pricingOptions);
+    if (pricingError) {
+      sendError(res, pricingError, 400);
+      return;
     }
 
     const attraction = await Attraction.findByIdAndUpdate(
