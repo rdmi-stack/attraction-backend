@@ -117,6 +117,8 @@ export interface ITenant extends Document {
     enabledGateways: string[];
   };
   status: TenantStatus;
+  previewAccessCode?: string;
+  previewAccessCodeUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

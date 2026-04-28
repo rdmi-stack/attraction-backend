@@ -155,6 +155,19 @@ const tenantSchema = new Schema<ITenant>(
       default: 'pending',
       index: true,
     },
+    // Per-tenant access code that gates preview-environment access (foxes-network.netlify.app etc).
+    // Real custom domains bypass this. select:false ensures the code is never loaded into normal
+    // queries — endpoints that need it must explicitly .select('+previewAccessCode').
+    previewAccessCode: {
+      type: String,
+      select: false,
+      sparse: true,
+      index: true,
+    },
+    previewAccessCodeUpdatedAt: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -162,6 +175,8 @@ const tenantSchema = new Schema<ITenant>(
       transform: (_, ret) => {
         const obj = ret as Record<string, unknown>;
         delete obj.__v;
+        // Never leak the access code in regular API responses
+        delete obj.previewAccessCode;
         return obj;
       },
     },
