@@ -72,6 +72,62 @@ export const unlockPreview = async (
 };
 
 /**
+ * POST /api/preview/unlock-by-code
+ * Public. Generic-portal entry: client enters just a code, we find the tenant
+ * whose previewAccessCode matches and return its slug + metadata so the
+ * frontend can mark THAT tenant unlocked and redirect. Wrong code → 401 with
+ * a generic message (don't leak which slugs exist or which codes are close).
+ */
+export const unlockByCode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { code } = req.body as { code?: string };
+    if (!code || typeof code !== 'string') {
+      sendError(res, 'Code is required', 400);
+      return;
+    }
+
+    const normalised = normalise(code);
+    if (normalised.length !== 8) {
+      sendError(res, 'Invalid access code', 401);
+      return;
+    }
+
+    // Match against any tenant — codes are unique per tenant. Index on
+    // previewAccessCode keeps this fast even at scale.
+    const tenants = await Tenant.find({}).select('+previewAccessCode slug name logo theme designMode');
+
+    const tenant = tenants.find(
+      (t) => t.previewAccessCode && normalise(t.previewAccessCode) === normalised
+    );
+
+    if (!tenant) {
+      sendError(res, 'Invalid access code', 401);
+      return;
+    }
+
+    sendSuccess(
+      res,
+      {
+        tenant: {
+          slug: tenant.slug,
+          name: tenant.name,
+          logo: tenant.logo,
+          theme: tenant.theme,
+          designMode: tenant.designMode,
+        },
+      },
+      'Access granted'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/preview/lookup?slug=<slug>
  * Public. Returns minimal tenant metadata (name, logo) so the gate page can
  * personalise the prompt. Does NOT return the access code or signal whether
