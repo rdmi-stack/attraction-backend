@@ -58,7 +58,7 @@ export interface ITenant extends Document {
     heading: string;
     body: string;
   };
-  designMode?: 'default' | 'luxury' | 'minimal' | 'nautical' | 'equestrian' | 'marine' | 'desert' | 'safari' | 'travel' | 'stable' | 'sunmarine' | 'rittal';
+  designMode?: 'default' | 'luxury' | 'minimal' | 'nautical' | 'equestrian' | 'marine' | 'desert' | 'safari' | 'travel' | 'stable' | 'sunmarine' | 'rittal' | 'speedboat' | 'ancient' | 'pyramid' | 'skyride' | 'temple' | 'ranch' | 'reef' | 'obelisk' | 'dune' | 'savanna' | 'expedition' | 'dolphin' | 'safarisahara';
   defaultCurrency: string;
   defaultLanguage: string;
   supportedLanguages: string[];
@@ -119,6 +119,15 @@ export interface ITenant extends Document {
   status: TenantStatus;
   previewAccessCode?: string;
   previewAccessCodeUpdatedAt?: Date;
+  flatUrls?: boolean;
+  customPages?: Array<{
+    slug: string;
+    title: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    body: string;
+    sortOrder?: number;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }

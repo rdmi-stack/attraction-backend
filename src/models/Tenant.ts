@@ -74,7 +74,7 @@ const tenantSchema = new Schema<ITenant>(
     },
     designMode: {
       type: String,
-      enum: ['default', 'luxury', 'minimal', 'nautical', 'equestrian', 'marine', 'desert', 'safari', 'travel', 'stable', 'sunmarine', 'rittal', 'speedboat', 'ancient', 'pyramid', 'skyride', 'temple', 'ranch', 'reef', 'obelisk', 'dune', 'savanna', 'expedition'],
+      enum: ['default', 'luxury', 'minimal', 'nautical', 'equestrian', 'marine', 'desert', 'safari', 'travel', 'stable', 'sunmarine', 'rittal', 'speedboat', 'ancient', 'pyramid', 'skyride', 'temple', 'ranch', 'reef', 'obelisk', 'dune', 'savanna', 'expedition', 'dolphin', 'safarisahara'],
       default: 'default',
     },
     defaultCurrency: {
@@ -168,6 +168,28 @@ const tenantSchema = new Schema<ITenant>(
       type: Date,
       select: false,
     },
+
+    // SEO migration tenants (e.g. Safari Sahara — preserving existing /hurghada-quad-biking
+    // ranks rather than nesting under /attractions/) get flat root-level URLs. The frontend
+    // root catch-all uses this flag to decide whether `/<slug>` resolves to an attraction.
+    flatUrls: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Free-form static pages defined per tenant (about, contact, terms, privacy,
+    // become-a-partner, etc.). Lets a tenant ship its own copy without us hard-coding
+    // page templates. Slug must be unique within the tenant.
+    customPages: [
+      {
+        slug: { type: String, required: true, lowercase: true, trim: true },
+        title: { type: String, required: true },
+        metaTitle: { type: String },
+        metaDescription: { type: String },
+        body: { type: String, required: true }, // HTML or Markdown
+        sortOrder: { type: Number, default: 0 },
+      },
+    ],
   },
   {
     timestamps: true,
