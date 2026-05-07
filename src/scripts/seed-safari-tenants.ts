@@ -292,15 +292,15 @@ const QUAD_TOUR_TENANT = {
   status: 'active' as const,
 };
 
+// Reference tours mirror the live operator listing on
+// https://www.getyourguide.com/wild-desert-safari-s665879/ — same structure,
+// same activities, same hour/price tiers as the published GetYourGuide catalog.
 const QUAD_TOUR_TOURS = [
-  { slug: 'wild-desert-quad-classic', title: 'Wild Desert Quad Classic', duration: '3 hours', priceFrom: 28, imagePrompt: 'Action shot of orange quad bike jumping over desert dune, sand spraying, dramatic motion blur, golden sunset Egypt' },
-  { slug: 'overnight-bedouin-camp-expedition', title: 'Overnight Bedouin Camp Expedition', duration: '24 hours', priceFrom: 145, imagePrompt: 'Bedouin camp at night under starry desert sky, glowing fire, camels resting, traditional tents, Milky Way visible, Red Sea desert' },
-  { slug: 'sunrise-dune-buggy-rush', title: 'Sunrise Dune Buggy Rush', duration: '4 hours', priceFrom: 55, imagePrompt: 'Two off-road dune buggies racing across orange Egyptian dunes at sunrise, rising sun behind, dramatic dust trails, action photo' },
-  { slug: 'private-jeep-canyon-trail', title: 'Private Jeep Canyon Trail', duration: '6 hours', priceFrom: 89, imagePrompt: 'Open-top safari jeep navigating narrow desert canyon with high red rock walls, Egyptian landscape, dramatic shadows, adventure photography' },
-  { slug: 'sunset-quad-stargazing', title: 'Sunset Quad + Stargazing', duration: '5 hours', priceFrom: 49, imagePrompt: 'Quad bikes parked at scenic desert overlook with Red Sea on horizon at sunset, riders sitting watching sky, peaceful atmospheric scene' },
-  { slug: 'family-quad-camel-combo', title: 'Family Quad + Camel Combo', duration: '4 hours', priceFrom: 38, imagePrompt: 'Family of four on small quad bikes with Bedouin guide on camel beside them, peaceful golden desert afternoon, soft warm light' },
-  { slug: 'extreme-rzr-power-run', title: 'Extreme RZR Power Run', duration: '3 hours', priceFrom: 99, imagePrompt: 'Black Polaris RZR catching air over desert berm, full action shot, helmeted driver, dust cloud, ultra-dramatic motion, Egyptian Eastern Desert' },
-  { slug: 'private-photographer-desert-tour', title: 'Private Photographer Desert Tour', duration: '5 hours', priceFrom: 125, imagePrompt: 'Photographer with tripod on desert ridge at golden hour shooting expansive Egyptian landscape, wide cinematic shot, atmospheric lighting' },
+  { slug: 'hurghada-desert-quad-atv-camel-bbq', title: 'Hurghada: Desert Quad Bike, ATV, Camel Ride & Optional BBQ', duration: '3 - 5 hours', priceFrom: 35, imagePrompt: 'Quad bike rider racing across orange Egyptian desert dunes, ATV nearby, camel guide silhouetted at horizon, golden afternoon light, action photography' },
+  { slug: 'hurghada-stargazing-camel-bbq-candlelight', title: 'HRG: Desert Stargazing with Camel & BBQ Dinner on Candlelight', duration: '6.5 - 7 hours', priceFrom: 46, imagePrompt: 'Bedouin camp under stars in Egyptian desert, glowing candles arranged on sand, camels at rest, BBQ fire glow, Milky Way overhead, atmospheric night photography' },
+  { slug: 'hurghada-desert-safari-dune-buggy-bbq', title: 'Hurghada: Desert Safari by Dune Buggy with Optional BBQ', duration: '2 - 5 hours', priceFrom: 63, imagePrompt: 'Bright orange dune buggy launching off Egyptian sand crest, dust spray, dramatic action shot, warm desert light, Red Sea coast horizon' },
+  { slug: 'hurghada-jeep-safari-atv-buggy-camel-dinner-show', title: 'HRG: Jeep Safari with ATV, Buggy, Camel, Optional Dinner & Show', duration: '5 - 7 hours', priceFrom: 25, imagePrompt: 'Open-top desert safari jeep leading convoy of ATVs and buggies through Egyptian dunes, camel caravan in distance, sunset golden hour, adventure photography' },
+  { slug: 'hurghada-quad-atv-camel-experience-3-or-5-hour', title: 'HRG: 3 or 5-Hour Quad Bike and ATV Experience with Camel Ride', duration: '5 hours', priceFrom: 31, imagePrompt: 'Group of riders on quad bikes pausing beside Bedouin guide and camels in Egyptian desert, friendly atmospheric scene, warm afternoon light' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────
@@ -447,6 +447,36 @@ async function seedTenant(
     log(`✅ Brand-admin user: ${brandAdminEmail}`);
   } else {
     log(`ℹ Brand-admin already exists: ${brandAdminEmail}`);
+  }
+
+  // Cleanup: remove tours that are no longer in the canonical seed list.
+  // We only purge attractions exclusively owned by THIS tenant — shared
+  // attractions stay put. This keeps reruns idempotent when the tour list
+  // changes (e.g. the QuadTour catalog was rewritten to mirror the live
+  // GetYourGuide listing).
+  const isFlatTenant = !!(tenantData as { flatUrls?: boolean }).flatUrls;
+  const canonicalSlugs = new Set(
+    tours.map((t) => (isFlatTenant ? `${tenantData.slug}-${t.slug}` : t.slug))
+  );
+  const canonicalPaths = new Set(tours.map((t) => t.slug));
+  const orphans = await Attraction.find({
+    tenantIds: { $in: [tenant._id] },
+    $nor: [
+      { slug: { $in: Array.from(canonicalSlugs) } },
+      { pathSlug: { $in: Array.from(canonicalPaths) } },
+    ],
+  }).select('_id slug tenantIds');
+  for (const orph of orphans) {
+    if (Array.isArray(orph.tenantIds) && orph.tenantIds.length === 1) {
+      await Attraction.deleteOne({ _id: orph._id });
+      log(`  🗑  Removed orphan tour: ${orph.slug}`);
+    } else {
+      await Attraction.updateOne(
+        { _id: orph._id },
+        { $pull: { tenantIds: tenant._id } }
+      );
+      log(`  🔗 Detached shared tour from tenant: ${orph.slug}`);
+    }
   }
 
   // Tours
