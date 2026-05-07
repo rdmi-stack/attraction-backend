@@ -11,6 +11,16 @@ const attractionSchema = new Schema<IAttraction>(
       trim: true,
       index: true,
     },
+    // URL-facing slug for flatUrls tenants. Lets multiple tenants ship the
+    // same path (e.g. /hurghada-jeep-safari) without colliding on the global
+    // unique `slug` index. Falls back to slug for non-flatUrls tenants.
+    pathSlug: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
     title: {
       type: String,
       required: true,

@@ -139,6 +139,7 @@ export type Badge = 'bestseller' | 'free-cancellation' | 'skip-line' | 'instant-
 export interface IAttraction extends Document {
   _id: Types.ObjectId;
   slug: string;
+  pathSlug?: string;
   title: string;
   shortDescription: string;
   description: string;

@@ -446,8 +446,13 @@ async function seedTenant(
       ? await uploadGeneratedImage(tour.imagePrompt, `attractions-network/tours/${tenantData.slug}`, '1536x1024')
       : '';
 
+    // For flatUrls tenants we prefix the storage slug to avoid colliding on
+    // the global unique `slug` index, while pathSlug holds the user-facing URL.
+    const isFlat = !!(tenantData as { flatUrls?: boolean }).flatUrls;
+    const storageSlug = isFlat ? `${tenantData.slug}-${tour.slug}` : tour.slug;
     const attrPayload = {
-      slug: tour.slug,
+      slug: storageSlug,
+      pathSlug: isFlat ? tour.slug : undefined,
       title,
       shortDescription: enriched.shortDescription,
       description: enriched.description,
@@ -492,7 +497,9 @@ async function seedTenant(
       sortOrder: tours.indexOf(tour),
     };
 
-    const existing = await Attraction.findOne({ slug: tour.slug, tenantIds: { $in: [tenant._id] } });
+    const existing = await Attraction.findOne({
+      $or: [{ slug: storageSlug }, { pathSlug: tour.slug, tenantIds: { $in: [tenant._id] } }],
+    });
     if (existing) {
       Object.assign(existing, attrPayload);
       if (tourImage) existing.images = [tourImage];

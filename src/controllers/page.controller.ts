@@ -35,9 +35,11 @@ export const resolvePage = async (
       return;
     }
 
-    // 1. Try matching an attraction
+    // 1. Try matching an attraction. flatUrls tenants use pathSlug for URLs
+    // (so multiple tenants can own the same path without colliding on the
+    // globally-unique slug index). Fall back to slug for compatibility.
     const attraction = await Attraction.findOne({
-      slug,
+      $or: [{ pathSlug: slug }, { slug }],
       status: 'active',
       tenantIds: { $in: [req.tenant._id] },
     }).lean();
