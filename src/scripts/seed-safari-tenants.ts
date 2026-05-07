@@ -268,8 +268,8 @@ const QUAD_TOUR_TENANT = {
   description:
     'Quad Tour Safari runs the Red Sea coast’s most adrenaline-rich desert experiences. From action-packed quad rides to overnight Bedouin camp expeditions — every tour is hand-built for travellers who want the desert raw, not packaged.',
   theme: { primaryColor: '#F97316', secondaryColor: '#7C2D12', accentColor: '#FCD34D' },
-  fonts: { heading: 'Bebas Neue', body: 'Inter' },
-  designMode: 'desert',
+  fonts: { heading: 'Oswald', body: 'Inter' },
+  designMode: 'quadtour',
   defaultCurrency: 'USD',
   defaultLanguage: 'en',
   supportedLanguages: ['en', 'de', 'ru', 'ar'],
