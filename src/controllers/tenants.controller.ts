@@ -252,6 +252,7 @@ export const updateTenantSettings = async (
       'supportedLanguages',
       'timezone',
       'pricingSettings',
+      'navigation', // custom nav menu links per tenant
     ];
 
     const updates: Record<string, unknown> = {};
