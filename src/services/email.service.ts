@@ -123,6 +123,83 @@ export const sendBookingConfirmation = async (
   });
 };
 
+export const sendAdminBookingNotification = async (
+  recipientEmail: string,
+  details: {
+    reference: string;
+    tenantName: string;
+    attractionTitle: string;
+    date: string;
+    time?: string;
+    guestName: string;
+    guestEmail: string;
+    guestPhone: string;
+    adults: number;
+    children: number;
+    total: number;
+    currency: string;
+    paymentMethod: string;
+  }
+): Promise<void> => {
+  const adminUrl = `${env.frontendUrl.split(',')[0].trim()}/admin/bookings`;
+  const totalGuests = details.adults + details.children;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.5; color: #1f2937; background: #f3f4f6; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #7c3aed, #c026d3); color: white; padding: 24px 28px; }
+        .header .eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.85; }
+        .header h1 { margin: 6px 0 0; font-size: 22px; font-weight: 600; }
+        .content { padding: 28px; }
+        .ref { display: inline-block; background: #f3f4f6; color: #111; font-family: monospace; font-size: 14px; padding: 6px 12px; border-radius: 6px; margin-bottom: 16px; }
+        table.details { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        table.details td { padding: 10px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; vertical-align: top; }
+        table.details td:first-child { color: #6b7280; width: 38%; }
+        table.details td:last-child { color: #111; font-weight: 500; }
+        .total-row td { font-size: 16px !important; font-weight: 600 !important; padding-top: 14px !important; border-top: 2px solid #111 !important; border-bottom: none !important; color: #111 !important; }
+        .button { display: inline-block; background: #111; color: white !important; padding: 12px 22px; text-decoration: none; border-radius: 8px; margin-top: 18px; font-size: 14px; font-weight: 500; }
+        .footer { padding: 20px 28px; color: #6b7280; font-size: 12px; background: #fafafa; border-top: 1px solid #e5e7eb; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="eyebrow">${details.tenantName}</div>
+          <h1>New Booking Received</h1>
+        </div>
+        <div class="content">
+          <div class="ref">${details.reference}</div>
+          <p style="margin: 0 0 6px;"><strong>${details.guestName}</strong> just booked <strong>${details.attractionTitle}</strong>.</p>
+          <table class="details">
+            <tr><td>Experience</td><td>${details.attractionTitle}</td></tr>
+            <tr><td>Date</td><td>${details.date}${details.time ? ` · ${details.time}` : ''}</td></tr>
+            <tr><td>Guests</td><td>${totalGuests} (${details.adults} adult${details.adults === 1 ? '' : 's'}${details.children ? `, ${details.children} child${details.children === 1 ? '' : 'ren'}` : ''})</td></tr>
+            <tr><td>Lead traveller</td><td>${details.guestName}</td></tr>
+            <tr><td>Email</td><td><a href="mailto:${details.guestEmail}" style="color:#7c3aed;">${details.guestEmail}</a></td></tr>
+            <tr><td>Phone</td><td>${details.guestPhone}</td></tr>
+            <tr><td>Payment</td><td>${details.paymentMethod === 'pay-later' ? 'Pay at location' : 'Paid online'}</td></tr>
+            <tr class="total-row"><td>Total</td><td>${details.currency} ${details.total.toFixed(2)}</td></tr>
+          </table>
+          <a href="${adminUrl}" class="button">Open in admin →</a>
+        </div>
+        <div class="footer">
+          Sent automatically when a guest completes checkout on ${details.tenantName}.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `New booking · ${details.reference} · ${details.attractionTitle}`,
+    html,
+  });
+};
+
 export const sendPasswordResetEmail = async (
   email: string,
   resetToken: string,

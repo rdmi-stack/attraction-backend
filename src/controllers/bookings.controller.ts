@@ -9,6 +9,8 @@ import { generateBookingReference } from '../utils/hash';
 import { generateTicketPdf } from '../services/pdf.service';
 import { createMockRefund } from '../services/stripe.service';
 import { createAdminNotifications } from '../services/notification.service';
+import { sendBookingConfirmation, sendAdminBookingNotification } from '../services/email.service';
+import { Tenant } from '../models/Tenant';
 import { escapeRegex } from '../utils/helpers';
 import { Availability } from '../models/Availability';
 
@@ -248,6 +250,62 @@ export const createBooking = async (
       data: { bookingId: booking._id, reference: booking.reference },
       tenantId: tenantId.toString(),
     }).catch(() => {});
+
+    // Email notifications — fire and forget so a delivery failure never blocks
+    // the booking response. Includes:
+    //   • Customer confirmation to the address typed at checkout
+    //   • Admin notification to the tenant's contact email + Fouad's central
+    //     inbox so brand operators see new bookings in their inbox.
+    (async () => {
+      const firstItem = items[0];
+      const totalAdults = items.reduce((s: number, it: { quantities?: { adults?: number } }) => s + (it.quantities?.adults || 0), 0);
+      const totalChildren = items.reduce((s: number, it: { quantities?: { children?: number } }) => s + (it.quantities?.children || 0), 0);
+      const guestName = `${guestDetails.firstName} ${guestDetails.lastName}`.trim();
+
+      try {
+        await sendBookingConfirmation(guestDetails.email, {
+          reference: booking.reference,
+          attractionTitle: attraction.title,
+          date: firstItem?.date || '',
+          time: firstItem?.time,
+          guestName,
+          total,
+          currency: attraction.currency,
+        });
+      } catch (err) {
+        console.error('Customer confirmation email failed:', err);
+      }
+
+      try {
+        const tenantDoc = await Tenant.findById(tenantId).select('name contactInfo').lean();
+        const recipients = new Set<string>();
+        if (tenantDoc?.contactInfo?.email) recipients.add(tenantDoc.contactInfo.email);
+        recipients.add('info@foxestechnology.com');
+        for (const recipient of recipients) {
+          try {
+            await sendAdminBookingNotification(recipient, {
+              reference: booking.reference,
+              tenantName: tenantDoc?.name || 'Attractions Network',
+              attractionTitle: attraction.title,
+              date: firstItem?.date || '',
+              time: firstItem?.time,
+              guestName,
+              guestEmail: guestDetails.email,
+              guestPhone: guestDetails.phone,
+              adults: totalAdults,
+              children: totalChildren,
+              total,
+              currency: attraction.currency,
+              paymentMethod: paymentMethod || 'pay-later',
+            });
+          } catch (err) {
+            console.error(`Admin booking email to ${recipient} failed:`, err);
+          }
+        }
+      } catch (err) {
+        console.error('Admin booking notification block failed:', err);
+      }
+    })();
 
     sendSuccess(res, booking, 'Booking created successfully', 201);
   } catch (error) {
