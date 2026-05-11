@@ -284,6 +284,78 @@ export const updateTenantSettings = async (
   }
 };
 
+// Portfolio-wide totals for the admin Sites list page. Super-admin sees the
+// full network; brand-admin sees only the sites they're assigned to.
+//
+// We aggregate live from the bookings collection because the legacy
+// `Tenant.stats` field was only ever populated on mock data and is
+// `undefined` on every real tenant — which is why the Sites list tiles
+// were showing 0 bookings / $0 revenue despite ~110 real bookings.
+export const getPortfolioStats = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const adminRoles = ['super-admin', 'brand-admin', 'manager'];
+    if (!req.user || !adminRoles.includes(req.user.role)) {
+      sendError(res, 'Forbidden', 403);
+      return;
+    }
+
+    const match: Record<string, unknown> = {};
+    if (req.user.role !== 'super-admin') {
+      const assigned = (req.user.assignedTenants || []) as Types.ObjectId[];
+      if (assigned.length === 0) {
+        sendSuccess(res, {
+          totalBookings: 0,
+          totalRevenue: 0,
+          bookedRevenue: 0,
+          collectedRevenue: 0,
+        });
+        return;
+      }
+      match.tenantId = { $in: assigned };
+    }
+
+    const agg = await Booking.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalBookings: { $sum: 1 },
+          // Booked revenue = anything that's a real, non-cancelled commitment.
+          // We treat 'confirmed' and 'completed' as locked-in bookings (this
+          // includes pay-later, where the booking is sealed even though the
+          // money hasn't cleared yet).
+          bookedRevenue: {
+            $sum: {
+              $cond: [{ $in: ['$status', ['confirmed', 'completed']] }, '$total', 0],
+            },
+          },
+          // Collected = money that actually cleared.
+          collectedRevenue: {
+            $sum: { $cond: [{ $eq: ['$paymentStatus', 'succeeded'] }, '$total', 0] },
+          },
+        },
+      },
+    ]);
+
+    const row = agg[0] || { totalBookings: 0, bookedRevenue: 0, collectedRevenue: 0 };
+    sendSuccess(res, {
+      totalBookings: row.totalBookings,
+      // Default totalRevenue to bookedRevenue so the Sites list tile reflects
+      // what the operator intuitively thinks of as revenue (every confirmed
+      // pay-later booking still counts).
+      totalRevenue: row.bookedRevenue,
+      bookedRevenue: row.bookedRevenue,
+      collectedRevenue: row.collectedRevenue,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Dashboard stats for tenant
 export const getTenantStats = async (
   req: AuthRequest,

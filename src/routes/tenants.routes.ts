@@ -10,6 +10,7 @@ import {
   updateTenantSettings,
   deleteTenant,
   getTenantStats,
+  getPortfolioStats,
 } from '../controllers/tenants.controller';
 import { authenticate, requireSuperAdmin, requireAdmin, canAccessTenant } from '../middleware/auth.middleware';
 import { validate, validateQuery } from '../middleware/validate.middleware';
@@ -78,6 +79,15 @@ router.get('/public/:id', getPublicTenantById);
  *         $ref: '#/components/responses/NotFoundError'
  */
 router.get('/by-slug/:slug', getTenantBySlug);
+
+// Portfolio-wide totals for the admin Sites list page (Super-admin sees
+// everything; brand-admin sees only their assigned sites).
+router.get(
+  '/admin/portfolio-stats',
+  authenticate,
+  requireAdmin,
+  getPortfolioStats
+);
 
 /**
  * @swagger
