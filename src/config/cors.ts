@@ -33,6 +33,8 @@ const allowedPatterns = [
   /^rittaltravelegypt\.com$/,
   /^splashspeedboathurghada\.com$/,
   /^egyptsunmarine\.com$/,
+  /^luxorairballoon\.com$/,
+  /^www\.luxorairballoon\.com$/,
   // German EEO network
   /^aegyptenausfluege\.de$/,
   /^kairoausfluege\.de$/,
