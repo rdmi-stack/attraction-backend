@@ -251,7 +251,7 @@ async function main(): Promise<void> {
         cancellationPolicy: 'Free cancellation up to 24 hours before',
         instantConfirmation: true,
         mobileTicket: true,
-        badges: ['bestseller', 'family-friendly', 'free-cancellation', 'instant-confirm'],
+        badges: ['bestseller', 'free-cancellation', 'instant-confirm'],
         availability: { type: 'date-only', advanceBooking: 30 },
         tenantIds: [tenant._id, portfolio._id],
         status: 'active',
