@@ -188,7 +188,8 @@ async function main(): Promise<void> {
       'Royal SeaScope runs sixteen yellow semi-submarines across seven Red Sea cities. See the reef from a sealed air-conditioned cabin two metres below the surface — sixteen panoramic windows, no swimming required, family-safe for all ages. Part of the Egypt Sunmarine family.';
     (tenant as any).domain = 'royal-seascope.foxesnetwork.com';
     (tenant as any).customDomain = 'royalseascope.com';
-    (tenant as any).logo = '/logos/royal-seascope.png';
+    (tenant as any).logo =
+      'https://res.cloudinary.com/dm3sxllch/image/upload/v1778866748/attractions-network/tenant-logos/royal-seascope/m7pf2975qoocyzpfdku9.jpg';
     (tenant as any).favicon = '/favicon.png';
     (tenant as any).theme = {
       primaryColor: '#FFD200',
