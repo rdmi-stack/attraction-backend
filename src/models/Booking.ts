@@ -113,6 +113,27 @@ const bookingSchema = new Schema<IBooking>(
       type: Schema.Types.ObjectId,
       ref: 'SpecialOffer',
     },
+    // Reseller revenue split. Set only when isResale — i.e. the selling tenant
+    // differs from the attraction's supplier tenant. Customer still pays `total`;
+    // these fields just record who earns what for internal accounting.
+    supplierTenantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Tenant',
+    },
+    sellerTenantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Tenant',
+    },
+    isResale: {
+      type: Boolean,
+      default: false,
+    },
+    revenueBreakdown: {
+      commissionType: { type: String, enum: ['commission', 'net'] },
+      commissionValue: { type: Number },
+      supplierEarnings: { type: Number },
+      sellerEarnings: { type: Number },
+    },
   },
   {
     timestamps: true,
@@ -138,5 +159,8 @@ bookingSchema.pre('save', function (this: IBooking, next) {
 bookingSchema.index({ 'guestDetails.email': 1 });
 bookingSchema.index({ createdAt: -1 });
 bookingSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
+// Reseller earnings lookups
+bookingSchema.index({ supplierTenantId: 1, isResale: 1 });
+bookingSchema.index({ sellerTenantId: 1, isResale: 1 });
 
 export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);

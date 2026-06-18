@@ -349,6 +349,22 @@ const validatePricingOptions = (pricingOptions: unknown): string | null => {
   return null;
 };
 
+const validateReseller = (reseller: unknown): string | null => {
+  if (!reseller || typeof reseller !== 'object') return null;
+  const r = reseller as { enabled?: boolean; type?: string; value?: number };
+  if (!r.enabled) return null;
+  if (r.type !== 'commission' && r.type !== 'net') {
+    return 'Reseller type must be "commission" or "net"';
+  }
+  if (typeof r.value !== 'number' || Number.isNaN(r.value) || r.value < 0) {
+    return 'Reseller rate must be a positive number';
+  }
+  if (r.type === 'commission' && r.value > 100) {
+    return 'Commission cannot exceed 100%';
+  }
+  return null;
+};
+
 export const createAttraction = async (
   req: AuthRequest,
   res: Response,
@@ -371,8 +387,16 @@ export const createAttraction = async (
       return;
     }
 
+    const resellerError = validateReseller(req.body.reseller);
+    if (resellerError) {
+      sendError(res, resellerError, 400);
+      return;
+    }
+
     const attractionData = {
       ...req.body,
+      // Default the supplier (owner) to the first assigned tenant.
+      ownerTenantId: req.body.ownerTenantId || req.body.tenantIds?.[0],
       createdBy: req.user?._id,
     };
 
@@ -410,6 +434,12 @@ export const updateAttraction = async (
     const pricingError = validatePricingOptions(req.body.pricingOptions);
     if (pricingError) {
       sendError(res, pricingError, 400);
+      return;
+    }
+
+    const resellerError = validateReseller(req.body.reseller);
+    if (resellerError) {
+      sendError(res, resellerError, 400);
       return;
     }
 
@@ -465,6 +495,152 @@ export const deleteAttraction = async (
     }
 
     sendSuccess(res, null, 'Attraction archived successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---- Reseller marketplace (Phase 2) ----
+
+// Resolve the tenant the current request is acting on behalf of.
+// Prefer explicit tenant context (host/header), fall back to the user's first
+// assigned tenant. Super-admins without a tenant context act globally (null).
+const resolveResellerTenantId = (req: AuthRequest): Types.ObjectId | null => {
+  if (req.tenant?._id) return req.tenant._id;
+  const assigned = req.user?.assignedTenants;
+  if (assigned && assigned.length > 0) return assigned[0];
+  return null;
+};
+
+// GET /attractions/resellable
+// Attractions OTHER tenants have opened for resale that the current tenant
+// can pick up: enabled, not owned by us, not already in our catalog, and
+// either open to everyone or explicitly allow-listed for us.
+export const getResellableAttractions = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const currentTenantId = resolveResellerTenantId(req);
+
+    // No tenant context and not a super-admin => nothing to offer.
+    if (!currentTenantId && req.user?.role !== 'super-admin') {
+      sendSuccess(res, []);
+      return;
+    }
+
+    const query: Record<string, unknown> = {
+      status: 'active',
+      'reseller.enabled': true,
+    };
+
+    if (currentTenantId) {
+      query.ownerTenantId = { $ne: currentTenantId };
+      query.tenantIds = { $ne: currentTenantId };
+      query.$or = [
+        { 'reseller.allowedTenants': { $size: 0 } },
+        { 'reseller.allowedTenants': currentTenantId },
+      ];
+    }
+
+    const attractions = await Attraction.find(query)
+      .select('title slug images priceFrom currency reseller ownerTenantId destination category')
+      .populate('ownerTenantId', 'name slug logo')
+      .sort({ rating: -1, createdAt: -1 })
+      .lean();
+
+    sendSuccess(res, attractions);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /attractions/:id/resell
+// Current tenant opts in to reselling the attraction.
+export const addReseller = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const currentTenantId = resolveResellerTenantId(req);
+
+    if (!currentTenantId) {
+      sendError(res, 'No tenant context to resell on behalf of', 400);
+      return;
+    }
+
+    const attraction = await Attraction.findById(id);
+    if (!attraction) {
+      sendError(res, 'Attraction not found', 404);
+      return;
+    }
+
+    if (!attraction.reseller?.enabled) {
+      sendError(res, 'This attraction is not available for resale', 400);
+      return;
+    }
+
+    if (attraction.ownerTenantId && attraction.ownerTenantId.toString() === currentTenantId.toString()) {
+      sendError(res, 'You already own this attraction', 400);
+      return;
+    }
+
+    const allowed = attraction.reseller.allowedTenants || [];
+    if (allowed.length > 0 && !allowed.some((t: Types.ObjectId) => t.toString() === currentTenantId.toString())) {
+      sendError(res, 'Your tenant is not allowed to resell this attraction', 403);
+      return;
+    }
+
+    const updated = await Attraction.findByIdAndUpdate(
+      id,
+      { $addToSet: { tenantIds: currentTenantId } },
+      { new: true }
+    );
+
+    sendSuccess(res, updated, 'Attraction added to your catalog');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /attractions/:id/resell
+// Current tenant drops the attraction from its catalog. The owner can never
+// remove itself this way (it would orphan the supply listing).
+export const removeReseller = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const currentTenantId = resolveResellerTenantId(req);
+
+    if (!currentTenantId) {
+      sendError(res, 'No tenant context to resell on behalf of', 400);
+      return;
+    }
+
+    const attraction = await Attraction.findById(id);
+    if (!attraction) {
+      sendError(res, 'Attraction not found', 404);
+      return;
+    }
+
+    if (attraction.ownerTenantId && attraction.ownerTenantId.toString() === currentTenantId.toString()) {
+      sendError(res, 'The owner tenant cannot stop reselling its own attraction', 400);
+      return;
+    }
+
+    const updated = await Attraction.findByIdAndUpdate(
+      id,
+      { $pull: { tenantIds: currentTenantId } },
+      { new: true }
+    );
+
+    sendSuccess(res, updated, 'Attraction removed from your catalog');
   } catch (error) {
     next(error);
   }

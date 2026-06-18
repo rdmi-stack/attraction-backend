@@ -12,6 +12,9 @@ import {
   getBlockedDates,
   blockDates,
   unblockDate,
+  getResellableAttractions,
+  addReseller,
+  removeReseller,
 } from '../controllers/attractions.controller';
 import { authenticate, optionalAuth, requireAdmin, requireRole } from '../middleware/auth.middleware';
 import { optionalTenant } from '../middleware/tenant.middleware';
@@ -138,6 +141,29 @@ router.get('/featured', optionalAuth, optionalTenant, getFeaturedAttractions);
 
 /**
  * @swagger
+ * /attractions/resellable:
+ *   get:
+ *     summary: List attractions other tenants have opened for resale that this tenant can pick up
+ *     tags: [Attractions, Marketplace]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Resellable attractions
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+// NOTE: must stay above the `/:slug` and `/:id/...` catch-alls so it is not shadowed.
+router.get(
+  '/resellable',
+  authenticate,
+  optionalTenant,
+  requireRole('super-admin', 'brand-admin'),
+  getResellableAttractions
+);
+
+/**
+ * @swagger
  * /attractions/{slug}:
  *   get:
  *     summary: Get attraction by slug
@@ -236,6 +262,10 @@ router.get(
 router.get('/:id/blocked-dates', authenticate, requireAdmin, getBlockedDates);
 router.post('/:id/block-dates', authenticate, requireAdmin, blockDates);
 router.delete('/:id/block-dates/:date', authenticate, requireAdmin, unblockDate);
+
+// Reseller marketplace — opt the current tenant in/out of selling an attraction.
+router.post('/:id/resell', authenticate, optionalTenant, requireRole('super-admin', 'brand-admin'), addReseller);
+router.delete('/:id/resell', authenticate, optionalTenant, requireRole('super-admin', 'brand-admin'), removeReseller);
 
 // Submit a review
 router.post(

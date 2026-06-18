@@ -16,6 +16,9 @@ import { Availability } from '../models/Availability';
 
 const adminRoles = ['super-admin', 'brand-admin', 'manager'];
 
+// Round money to 2 decimals (avoids float drift when splitting revenue).
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
 const hasTenantAccess = (req: AuthRequest, tenantId?: unknown): boolean => {
   if (!req.user || !tenantId) return false;
   if (req.user.role === 'super-admin') return true;
@@ -191,6 +194,57 @@ export const createBooking = async (
       return;
     }
 
+    // Reseller revenue split. When this booking is made on a reseller's site
+    // (sellerTenant) for an attraction owned by a different supplier tenant, we
+    // record both sides and split `total` between them. Internal accounting only
+    // — the customer still pays `total`; this does NOT change the charge.
+    const sellerTenant = tenantId;
+    const supplierTenant = attraction.ownerTenantId || attraction.tenantIds[0];
+    const isResale = !!(
+      attraction.reseller?.enabled &&
+      supplierTenant &&
+      sellerTenant &&
+      supplierTenant.toString() !== sellerTenant.toString()
+    );
+
+    let resaleFields: {
+      supplierTenantId: typeof supplierTenant;
+      sellerTenantId: typeof sellerTenant;
+      isResale: true;
+      revenueBreakdown: {
+        commissionType: 'commission' | 'net';
+        commissionValue: number;
+        supplierEarnings: number;
+        sellerEarnings: number;
+      };
+    } | { isResale: false } = { isResale: false };
+
+    if (isResale) {
+      const { type, value } = attraction.reseller;
+      let sellerEarnings: number;
+      let supplierEarnings: number;
+      if (type === 'commission') {
+        // Reseller keeps `value`% of the sale; supplier gets the rest.
+        sellerEarnings = round2((total * value) / 100);
+        supplierEarnings = round2(total - sellerEarnings);
+      } else {
+        // net: supplier must receive a fixed `value` (capped at total); reseller keeps the rest.
+        supplierEarnings = round2(Math.min(value, total));
+        sellerEarnings = round2(total - supplierEarnings);
+      }
+      resaleFields = {
+        supplierTenantId: supplierTenant,
+        sellerTenantId: sellerTenant,
+        isResale: true,
+        revenueBreakdown: {
+          commissionType: type,
+          commissionValue: value,
+          supplierEarnings,
+          sellerEarnings,
+        },
+      };
+    }
+
     // Create booking
     const booking = await Booking.create({
       reference: generateBookingReference(),
@@ -209,6 +263,7 @@ export const createBooking = async (
       paymentMethod: paymentMethod || 'pay-later',
       status: paymentMethod === 'pay-later' ? 'confirmed' : 'pending',
       paymentStatus: paymentMethod === 'pay-later' ? 'pending' : 'pending',
+      ...resaleFields,
     });
 
     // Update user stats if logged in
@@ -644,6 +699,83 @@ export const getBookingStats = async (
       pendingBookings,
       cancelledBookings,
       totalRevenue: revenue[0]?.total || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reseller earnings — splits the admin's resale activity into what they earn as
+// the supplier (their attraction sold on someone else's site) vs as the seller
+// (they sold someone else's attraction). Scoped to the admin's tenants; a
+// super-admin (no tenant scope) sees the whole network.
+export const getResellerEarnings = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // Resolve which tenants this admin can see. Super-admin => all tenants
+    // (undefined scope). Otherwise the active tenant, or all assigned tenants.
+    let myTenants: unknown[] | undefined;
+    if (req.user?.role !== 'super-admin') {
+      myTenants = req.tenant ? [req.tenant._id] : (req.user?.assignedTenants || []);
+    }
+
+    const scope = (field: 'supplierTenantId' | 'sellerTenantId'): Record<string, unknown> => {
+      const match: Record<string, unknown> = { isResale: true };
+      if (myTenants) match[field] = { $in: myTenants };
+      return match;
+    };
+
+    const recentMatch: Record<string, unknown> = { isResale: true };
+    if (myTenants) {
+      recentMatch.$or = [
+        { supplierTenantId: { $in: myTenants } },
+        { sellerTenantId: { $in: myTenants } },
+      ];
+    }
+
+    const [asSupplierAgg, asSellerAgg, recent] = await Promise.all([
+      Booking.aggregate([
+        { $match: scope('supplierTenantId') },
+        { $group: { _id: null, total: { $sum: '$revenueBreakdown.supplierEarnings' }, count: { $sum: 1 } } },
+      ]),
+      Booking.aggregate([
+        { $match: scope('sellerTenantId') },
+        { $group: { _id: null, total: { $sum: '$revenueBreakdown.sellerEarnings' }, count: { $sum: 1 } } },
+      ]),
+      Booking.find(recentMatch)
+        .populate('attractionId', 'title')
+        .populate('supplierTenantId', 'name')
+        .populate('sellerTenantId', 'name')
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean(),
+    ]);
+
+    const recentResale = recent.map((b: Record<string, any>) => ({
+      _id: b._id,
+      reference: b.reference,
+      title: b.attractionId?.title || null,
+      amount: b.total,
+      currency: b.currency,
+      supplierTenant: b.supplierTenantId?.name || null,
+      sellerTenant: b.sellerTenantId?.name || null,
+      breakdown: b.revenueBreakdown || null,
+      createdAt: b.createdAt,
+    }));
+
+    sendSuccess(res, {
+      asSupplier: {
+        total: round2(asSupplierAgg[0]?.total || 0),
+        count: asSupplierAgg[0]?.count || 0,
+      },
+      asSeller: {
+        total: round2(asSellerAgg[0]?.total || 0),
+        count: asSellerAgg[0]?.count || 0,
+      },
+      recent: recentResale,
     });
   } catch (error) {
     next(error);

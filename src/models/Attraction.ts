@@ -180,6 +180,20 @@ const attractionSchema = new Schema<IAttraction>(
       type: Schema.Types.ObjectId,
       ref: 'Tenant',
     }],
+    // Supplier tenant that owns this attraction (can mark it resellable).
+    ownerTenantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Tenant',
+      index: true,
+    },
+    // Reseller marketplace settings — other tenants can sell this attraction
+    // under their own brand with a commission cut or a fixed net rate.
+    reseller: {
+      enabled: { type: Boolean, default: false },
+      type: { type: String, enum: ['commission', 'net'], default: 'commission' },
+      value: { type: Number, default: 0, min: 0 },
+      allowedTenants: [{ type: Schema.Types.ObjectId, ref: 'Tenant' }],
+    },
     status: {
       type: String,
       enum: ['active', 'draft', 'archived'],
@@ -217,5 +231,7 @@ attractionSchema.index({ 'destination.city': 1, category: 1, status: 1 });
 attractionSchema.index({ priceFrom: 1, rating: -1 });
 attractionSchema.index({ featured: 1, sortOrder: 1 });
 attractionSchema.index({ tenantIds: 1, status: 1 });
+// Marketplace discovery: attractions a tenant has opened up for resale.
+attractionSchema.index({ 'reseller.enabled': 1, ownerTenantId: 1, status: 1 });
 
 export const Attraction = mongoose.model<IAttraction>('Attraction', attractionSchema);

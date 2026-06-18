@@ -8,6 +8,7 @@ import {
   getAllBookings,
   updateBookingStatus,
   getBookingStats,
+  getResellerEarnings,
 } from '../controllers/bookings.controller';
 import { authenticate, optionalAuth, requireAdmin, requireRole } from '../middleware/auth.middleware';
 import { optionalTenant } from '../middleware/tenant.middleware';
@@ -266,6 +267,58 @@ router.get(
   requireAdmin,
   optionalTenant,
   getBookingStats
+);
+
+/**
+ * @swagger
+ * /bookings/admin/earnings:
+ *   get:
+ *     summary: Get reseller revenue-split earnings (Admin)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reseller earnings split by supplier vs seller role
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     asSupplier:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         count:
+ *                           type: integer
+ *                     asSeller:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         count:
+ *                           type: integer
+ *                     recent:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
+router.get(
+  '/admin/earnings',
+  authenticate,
+  requireAdmin,
+  optionalTenant,
+  getResellerEarnings
 );
 
 /**

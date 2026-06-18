@@ -214,6 +214,18 @@ export interface IAttraction extends Document {
     keywords?: string[];
   };
   tenantIds: Types.ObjectId[];
+  // Supplier that owns/fulfils this attraction (the tenant that may mark it
+  // resellable). Other tenants resell it under their own brand.
+  ownerTenantId?: Types.ObjectId;
+  reseller: {
+    enabled: boolean;
+    type: 'commission' | 'net';
+    // commission: % the reseller keeps of the sale. net: fixed amount the
+    // supplier must receive per booking; the reseller keeps the rest.
+    value: number;
+    // Empty = any tenant may resell (open marketplace). Otherwise restricted.
+    allowedTenants: Types.ObjectId[];
+  };
   status: AttractionStatus;
   featured: boolean;
   sortOrder: number;
@@ -276,6 +288,18 @@ export interface IBooking extends Document {
   stripePaymentIntentId?: string;
   ticketPdfUrl?: string;
   specialOfferId?: Types.ObjectId;
+  // Reseller revenue split — only populated when this booking was sold by one
+  // tenant for an attraction owned by a different tenant (isResale). Internal
+  // accounting only; the customer still pays `total`.
+  supplierTenantId?: Types.ObjectId;
+  sellerTenantId?: Types.ObjectId;
+  isResale?: boolean;
+  revenueBreakdown?: {
+    commissionType: 'commission' | 'net';
+    commissionValue: number;
+    supplierEarnings: number;
+    sellerEarnings: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
