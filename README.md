@@ -1,187 +1,82 @@
-# Attractions Network - Backend API
+# Attractions Network — Backend API
 
-Express.js + TypeScript + MongoDB backend for the Attractions Network platform.
+Express + TypeScript REST API for the Attractions Network multi-tenant tours & attractions marketplace. Serves auth, catalog, booking, payment, review, tenant, and notification endpoints on top of MongoDB.
 
-## Tech Stack
+## Tech stack
 
-- **Runtime:** Node.js 18+
-- **Framework:** Express.js 4.x
-- **Language:** TypeScript 5.x
-- **Database:** MongoDB with Mongoose
-- **Authentication:** JWT (access + refresh tokens)
+- **Runtime:** Node.js 18+ / Express 4 + TypeScript
+- **Database:** MongoDB via Mongoose 8
+- **Auth:** JWT (`jsonwebtoken`) + bcrypt, access/refresh tokens, cookie-parser
 - **Payments:** Stripe
-- **Email:** Nodemailer
-- **File Upload:** Cloudinary
-- **Validation:** Zod
-- **Security:** Helmet, CORS, Rate Limiting
+- **Email:** Mailgun (`mailgun.js`) / Nodemailer
+- **Uploads:** Cloudinary + Multer
+- **Docs:** Swagger (`swagger-jsdoc` + `swagger-ui-express`)
+- **Tickets/QR:** PDFKit + qrcode
+- **Security:** Helmet, CORS, express-rate-limit, express-mongo-sanitize
+- **Testing:** Jest + Supertest
 
-## Getting Started
+## Features
+
+- Tenant-aware catalog APIs: attractions, destinations, categories, special offers
+- Booking & payment flows with promo codes, reviews, resident-vs-foreigner pricing, and optional hotel-pickup capture
+- Event RSVP support and async guest/admin booking emails
+- Per-tenant preview-site access codes (public unlock + admin reveal/regenerate)
+- Public tenant config exposing branding, pricing settings, flat URLs and custom pages
+- Tenant-admin tooling including a portfolio-stats aggregation endpoint
+- Media upload, tenant-scoped page resolution / sitemap endpoints, and seed/rollout scripts
+
+## Getting started
 
 ### Prerequisites
 
 - Node.js 18+
-- MongoDB (local or Atlas)
-- npm or yarn
+- A MongoDB instance
 
-### Installation
+### Install
 
-1. Install dependencies:
 ```bash
-cd backend
 npm install
 ```
 
-2. Configure environment variables:
-```bash
-cp .env.example .env
-```
+### Environment
 
-3. Edit `.env` with your configuration:
-```env
-MONGODB_URI=mongodb://localhost:27017/attractions-network
-JWT_SECRET=your-secure-secret-key
-STRIPE_SECRET_KEY=sk_test_xxx
-```
+Copy `.env.example` to `.env` and fill in values:
 
-4. Seed the database:
-```bash
-npm run seed
-```
+- **Server:** `NODE_ENV`, `PORT`
+- **Database:** `MONGODB_URI`
+- **Auth:** `JWT_SECRET`, `JWT_ACCESS_EXPIRY`, `JWT_REFRESH_EXPIRY`
+- **Email:** `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_FROM_EMAIL`
+- **Uploads:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- **CORS:** `FRONTEND_URL` (comma-separated for multiple origins)
+- **Rate limiting:** `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`
 
-5. Start development server:
-```bash
-npm run dev
-```
-
-The API will be available at `http://localhost:5000/api`
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `POST /api/auth/refresh-token` - Refresh access token
-- `GET /api/auth/me` - Get current user
-- `PATCH /api/auth/profile` - Update profile
-- `POST /api/auth/change-password` - Change password
-- `POST /api/auth/forgot-password` - Request password reset
-- `POST /api/auth/reset-password` - Reset password
-
-### Attractions
-- `GET /api/attractions` - List attractions (with filters)
-- `GET /api/attractions/featured` - Featured attractions
-- `GET /api/attractions/:slug` - Get by slug
-- `GET /api/attractions/:id/reviews` - Get reviews
-- `GET /api/attractions/:id/availability` - Get availability
-- `POST /api/attractions` - Create (admin)
-- `PATCH /api/attractions/:id` - Update (admin)
-- `DELETE /api/attractions/:id` - Delete (admin)
-
-### Bookings
-- `POST /api/bookings` - Create booking
-- `GET /api/bookings/reference/:reference` - Get by reference
-- `GET /api/bookings/my` - User's bookings
-- `PATCH /api/bookings/:id/cancel` - Cancel booking
-- `GET /api/bookings/:id/ticket` - Download ticket
-- `GET /api/bookings/admin` - All bookings (admin)
-- `GET /api/bookings/admin/stats` - Booking stats (admin)
-- `PATCH /api/bookings/admin/:id` - Update status (admin)
-
-### Categories
-- `GET /api/categories` - List categories
-- `GET /api/categories/:slug` - Get by slug
-- `POST /api/categories` - Create (admin)
-- `PATCH /api/categories/:id` - Update (admin)
-- `DELETE /api/categories/:id` - Delete (admin)
-
-### Destinations
-- `GET /api/destinations` - List destinations
-- `GET /api/destinations/featured` - Featured destinations
-- `GET /api/destinations/:slug` - Get by slug
-- `POST /api/destinations` - Create (admin)
-- `PATCH /api/destinations/:id` - Update (admin)
-- `DELETE /api/destinations/:id` - Delete (admin)
-
-### Tenants (Multi-tenant)
-- `GET /api/tenants/by-slug/:slug` - Get by slug (public)
-- `GET /api/tenants` - List (admin)
-- `GET /api/tenants/:id` - Get by ID (admin)
-- `GET /api/tenants/:id/stats` - Get stats (admin)
-- `POST /api/tenants` - Create (super-admin)
-- `PATCH /api/tenants/:id` - Update (super-admin)
-- `DELETE /api/tenants/:id` - Delete (super-admin)
-
-### Users
-- `GET /api/users/profile` - Get profile
-- `GET /api/users/wishlist` - Get wishlist
-- `POST /api/users/wishlist/:attractionId` - Add to wishlist
-- `DELETE /api/users/wishlist/:attractionId` - Remove from wishlist
-- `GET /api/users` - List users (admin)
-- `POST /api/users/invite` - Invite user (admin)
-- `PATCH /api/users/:id` - Update user (admin)
-- `DELETE /api/users/:id` - Delete user (admin)
-
-### Payments
-- `POST /api/payments/create-intent` - Create Stripe PaymentIntent
-- `POST /api/payments/webhook` - Stripe webhook
-- `GET /api/payments/:bookingId/status` - Get payment status
-- `POST /api/payments/:bookingId/refund` - Refund payment (admin)
-
-## Test Accounts
-
-After seeding:
-- **Admin:** admin@attractions-network.com / Admin@123456
-- **Customer:** customer@example.com / Customer@123
-
-## Scripts
+### Run
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm start        # Start production server
-npm run seed     # Seed database
+npm run dev    # ts-node-dev with respawn
+npm run build  # tsc → dist/
+npm start      # node dist/app.js
+npm run lint   # tsc --noEmit
+npm test       # Jest (runInBand)
+npm run seed   # seed base data
 ```
 
-## Project Structure
+## Project structure
 
 ```
-/backend
-├── src/
-│   ├── config/         # Configuration files
-│   ├── controllers/    # Route controllers
-│   ├── middleware/     # Express middleware
-│   ├── models/         # Mongoose models
-│   ├── routes/         # API routes
-│   ├── services/       # Business logic services
-│   ├── types/          # TypeScript types
-│   ├── utils/          # Utility functions
-│   ├── scripts/        # CLI scripts (seed, etc.)
-│   └── app.ts          # Express app entry
-├── package.json
-├── tsconfig.json
-└── .env.example
+src/
+├── app.ts          # Express app + middleware + route registration
+├── config/         # CORS, env, and runtime config
+├── routes/         # attraction, auth, booking, category, destination,
+│                   #   notification, payment, preview, promo, review,
+│                   #   rsvp, special-offer, stats, tenant, upload, user
+├── controllers/    # request handlers
+├── models/         # Attraction, Booking, Destination, EventRsvp, Review,
+│                   #   SpecialOffer, Tenant, User, ...
+├── services/       # email, media, and operational helpers
+└── scripts/        # seeding + tenant maintenance
 ```
 
-## Multi-tenant Support
+## Deployment
 
-The API supports multi-tenancy via:
-- `X-Tenant-ID` header
-- `tenantId` query parameter
-- Subdomain resolution
-
-Tenants can have their own branding, settings, and attractions.
-
-## Security Features
-
-- JWT authentication with refresh tokens
-- Password hashing with bcrypt
-- Rate limiting on all endpoints
-- CORS configuration
-- Helmet security headers
-- Input validation with Zod
-- Role-based access control
-
-## License
-
-Proprietary - Attractions Network
+Deploys to Railway via `railway.json` (Nixpacks, `npm run build` → `npm start`, health check at `/api/health`).
