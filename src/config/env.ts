@@ -40,7 +40,10 @@ export const env = {
 
   // OpenAI
   openaiApiKey: process.env.OPENAI_API_KEY || '',
-  
+
+  // foxes-content-engine publishing key (Bearer token on /api/admin/content/*)
+  contentEngineApiKey: process.env.CONTENT_ENGINE_API_KEY || '',
+
   // Frontend URL
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   

@@ -18,6 +18,8 @@ import specialOffersRoutes from './specialOffers.routes';
 import rsvpsRoutes from './rsvps.routes';
 import previewRoutes from './preview.routes';
 import pageRoutes from './page.routes';
+import blogRoutes from './blog.routes';
+import contentRoutes from './content.routes';
 
 const router = Router();
 
@@ -277,6 +279,10 @@ router.use('/special-offers', specialOffersRoutes);
 router.use('/rsvps', rsvpsRoutes);
 router.use('/preview', previewRoutes);
 router.use('/page', pageRoutes);
+router.use('/blog', blogRoutes);
+
+// foxes-content-engine publishing bridge (Bearer CONTENT_ENGINE_API_KEY)
+router.use('/admin/content', contentRoutes);
 
 // Admin routes aliases
 router.use('/admin/attractions', attractionsRoutes);
