@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { BlogPost } from '../models/BlogPost';
 import { authenticateContentEngine } from '../middleware/contentEngineAuth';
-import { sendError, sendSuccess } from '../utils/response';
+import { sendError } from '../utils/response';
 import { env } from '../config';
 
 const router = Router();
@@ -109,12 +109,10 @@ router.post('/blog', authenticateContentEngine, async (req: Request, res: Respon
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
-    sendSuccess(
-      res,
-      { id: String(saved._id), slug: saved.slug, liveUrl: liveUrl(saved.slug) },
-      'Saved',
-      201
-    );
+    // Flat shape — the content-engine's publishToAdapter expects { id, slug,
+    // liveUrl } at the top level (matches the other receivers), not a wrapped
+    // { success, data } envelope.
+    res.status(201).json({ id: String(saved._id), slug: saved.slug, liveUrl: liveUrl(saved.slug) });
   } catch (err) {
     sendError(res, err instanceof Error ? err.message : 'Insert failed', 500);
   }
