@@ -26,6 +26,8 @@ export interface IBlogPost extends Document {
       metaDescription?: string;
     }
   >;
+  // FAQ pairs from the content engine → FAQPage JSON-LD (rich results).
+  faqs?: { question: string; answer: string }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +62,10 @@ const blogPostSchema = new Schema<IBlogPost>(
     featured: { type: Boolean, default: false },
     publishedAt: { type: Date, index: true },
     translations: { type: Map, of: BlogTranslationSchema },
+    faqs: {
+      type: [{ question: { type: String, trim: true }, answer: { type: String, trim: true }, _id: false }],
+      default: [],
+    },
   },
   {
     timestamps: true,

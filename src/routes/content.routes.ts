@@ -18,6 +18,20 @@ function asStringArray(v: unknown, max = 12): string[] {
     .slice(0, max);
 }
 
+function sanitizeFaqs(v: unknown): { question: string; answer: string }[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((f) => {
+      const o = (f ?? {}) as { question?: unknown; answer?: unknown };
+      return {
+        question: typeof o.question === 'string' ? o.question.trim() : '',
+        answer: typeof o.answer === 'string' ? o.answer.trim() : '',
+      };
+    })
+    .filter((f) => f.question.length > 0 && f.answer.length > 0)
+    .slice(0, 10);
+}
+
 type IncomingPayload = {
   title?: string;
   slug?: string;
@@ -32,6 +46,7 @@ type IncomingPayload = {
   readTime?: number;
   status?: string;
   featured?: boolean;
+  faqs?: unknown;
 };
 
 type IncomingBody = {
@@ -89,6 +104,7 @@ router.post('/blog', authenticateContentEngine, async (req: Request, res: Respon
           status: p.status === 'draft' ? 'draft' : 'published',
           featured: p.featured === true,
           translations: body.translations ?? {},
+          faqs: sanitizeFaqs(p.faqs),
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
