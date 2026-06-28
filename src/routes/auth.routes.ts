@@ -10,6 +10,7 @@ import {
   acceptInvitation,
   changePassword,
   updateProfile,
+  passportLogin,
 } from '../controllers/auth.controller';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -77,6 +78,26 @@ router.post('/register', authLimiter, validate(registerSchema), register);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/login', authLimiter, validate(loginSchema), login);
+
+/**
+ * @swagger
+ * /auth/passport:
+ *   get:
+ *     summary: Foxes Passport SSO landing — verify a signed assertion and start a session
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: assertion
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Short-lived Foxes Passport assertion (aud=attraction)
+ *     responses:
+ *       302:
+ *         description: Redirects to the web app /dashboard on success, or /login?error=... on failure
+ */
+router.get('/passport', authLimiter, passportLogin);
+router.post('/passport', authLimiter, passportLogin);
 
 /**
  * @swagger

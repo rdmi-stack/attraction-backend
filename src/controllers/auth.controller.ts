@@ -1,7 +1,9 @@
-import { Response, NextFunction } from 'express';
+import crypto from 'crypto';
+import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils/jwt';
 import { generateRandomToken, hashToken } from '../utils/hash';
+import { verifyPassportAssertion } from '../utils/passport';
 import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../types';
 import { env } from '../config/env';
@@ -117,6 +119,86 @@ export const login = async (
     const userResponse = user.toJSON();
 
     sendSuccess(res, { user: userResponse, accessToken, refreshToken }, 'Login successful');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Foxes Passport SSO: a client clicks "Open Attractions Network" in the Foxes portal
+// and arrives here with a short-lived ?assertion=. We verify it against the SHARED
+// Foxes secret, resolve (or provision) the account by email with the LOWEST sensible
+// role, mint THIS platform's OWN native JWTs, set the same httpOnly cookies login()
+// sets, and redirect to the web app's /dashboard.
+export const passportLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // First configured FRONTEND_URL origin (the env can be comma-separated).
+    const frontendBase = (env.frontendUrl.split(',')[0] || 'http://localhost:3000').trim().replace(/\/+$/, '');
+    const fail = (code: string): void => {
+      res.redirect(`${frontendBase}/login?error=${encodeURIComponent(code)}`);
+    };
+
+    if (!env.foxesPassportSecret) return fail('sso_disabled');
+
+    const assertion =
+      typeof req.query.assertion === 'string'
+        ? req.query.assertion
+        : typeof req.body?.assertion === 'string'
+          ? req.body.assertion
+          : '';
+
+    const claims = verifyPassportAssertion(assertion);
+    if (!claims) return fail('invalid_or_expired_link');
+
+    const email = claims.email.toLowerCase().trim();
+    let user = await User.findOne({ email }).select('+refreshToken');
+
+    if (user && user.status !== 'active') return fail('account_inactive');
+
+    if (!user) {
+      // First arrival → provision with an UNUSABLE random password (the pre-save hook
+      // hashes it; no password login is possible) and the LOWEST role. We NEVER grant
+      // admin/brand-admin/super-admin from the assertion, regardless of claims.role.
+      const generatedPassword = crypto.randomBytes(32).toString('hex');
+      user = await User.create({
+        email,
+        password: generatedPassword,
+        firstName: email.split('@')[0] || 'Customer',
+        // lastName is required:true on the User schema, so an empty string fails
+        // validation — use a non-empty placeholder the user can edit in their profile.
+        lastName: 'Member',
+        role: 'customer',
+        status: 'active',
+      });
+
+      createAdminNotifications({
+        type: 'user',
+        title: 'New User via Foxes Passport',
+        message: `${email} signed in through Foxes Passport SSO`,
+        link: '/admin/users',
+        data: { userId: user._id },
+      }).catch(() => {});
+    }
+
+    // Mint THIS platform's own tokens (signed with env.jwtSecret via utils/jwt).
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    user.refreshToken = hashToken(refreshToken);
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Reuse login()'s exact cookie options (harmless backend-origin cookies).
+    res.cookie('accessToken', accessToken, COOKIE_OPTIONS);
+    res.cookie('refreshToken', refreshToken, { ...COOKIE_OPTIONS, path: '/api/auth/refresh' });
+
+    // Return tokens as JSON (mirrors login()). The frontend BFF /api/auth/passport
+    // sets the cookies on the FRONTEND origin and performs the redirect to /dashboard,
+    // so the live session cookie is on the user-facing host (not the API host).
+    sendSuccess(res, { user: user.toJSON(), accessToken, refreshToken }, 'Passport sign-in successful');
   } catch (error) {
     next(error);
   }

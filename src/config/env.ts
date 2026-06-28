@@ -23,6 +23,10 @@ export const env = {
   jwtSecret,
   jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '4h',
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
+
+  // Foxes Passport: the SHARED Foxes NEXTAUTH_SECRET, used ONLY to verify inbound
+  // single-sign-on assertions. Never mixed with this platform's own jwtSecret.
+  foxesPassportSecret: process.env.FOXES_PASSPORT_SECRET || '',
   
   // Stripe
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
